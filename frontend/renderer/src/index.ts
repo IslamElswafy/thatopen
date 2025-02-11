@@ -9,7 +9,7 @@ import { createClassificationTree } from "./modules/classificationTreeModule";
 import { createIfcImportation } from "./modules/ifcImportation";
 import { overrideIfcLoader } from "./overrides/ifcLoader";
 import { createClipper } from "./modules/clipper";
-import { initializeRaycasterHover } from "./modules/raycasterHover";
+import { initializeRaycasterHover } from "./modules/raycaster";
 
 
 BUI.Manager.init();

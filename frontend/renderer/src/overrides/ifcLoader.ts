@@ -1,6 +1,6 @@
 import * as OBC from "@thatopen/components";
 import { createIfcLoadingDialog } from "../modals/ifcLoadingDialog";
-import { updateRaycasterTargets } from "../modules/raycasterHover";
+import { updateRaycasterTargets } from "../modules/raycaster";
 
 export function overrideIfcLoader(components: any, world: any) {
     const ifcLoader = components.get(OBC.IfcLoader);
