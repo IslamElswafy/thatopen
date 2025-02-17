@@ -1,2 +1,3 @@
 frontend/renderer/node_modules
 .vscode
+frontend/renderer/src/index.ts.bak

@@ -32,6 +32,7 @@ export function overrideIfcLoader(components: any, world: any) {
             }
 
             world.scene.three.add(fragmentsGroup);
+            world.meshes.add(fragmentsGroup);
             updateRaycasterTargets(components, world);
 
             return fragmentsGroup;

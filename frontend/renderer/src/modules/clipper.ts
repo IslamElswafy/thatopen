@@ -3,25 +3,49 @@ import * as BUI from "@thatopen/ui";
 import * as OBC from "@thatopen/components";
 
 /**
- * Crée et configure le clipper permettant de générer des plans de coupe
- * lors d'un double clic sur le canvas de rendu.
+ * Attache les écouteurs d'événements pour le double clic et la suppression via le clavier.
+ *
+ * @param clipper - Le composant clipper
+ * @param world - Le world de votre scène
+ * @param container - L'élément sur lequel écouter les événements
+ */
+function attachEventListeners(clipper: any, world: any, container: HTMLElement): void {
+    // Gestion du double clic sur le conteneur
+    container.addEventListener("dblclick", () => {
+        if (clipper.enabled) {
+            clipper.create(world);
+            console.log("Plan de coupe créé via double clic.");
+        }
+    });
+
+    // Gestion de la suppression via Delete ou Backspace
+    window.addEventListener("keydown", (event: KeyboardEvent) => {
+        if ((event.code === "Delete" || event.code === "Backspace") && clipper.enabled) {
+            clipper.delete(world);
+            console.log("Plan de coupe supprimé.");
+        }
+    });
+}
+
+/**
+ * Crée et configure le clipper permettant de générer des plans de coupe.
  *
  * @param components - L'instance Components
  * @param world - Le world contenant scene, renderer et camera
+ * @param container - L'élément DOM sur lequel le clipper doit être actif
  * @returns Un élément UI à intégrer dans votre interface
  */
 export function createClipper(
     components: any,
     world: any,
-    container: any,
+    container: HTMLElement,
 ): HTMLElement {
-    // Utiliser le world mis à jour (par défaut dans components ou passé en paramètre)
+    // Option de débogage pour rendre container accessible globalement (à retirer en prod)
+    (window as any).container = container;
 
-    // Récupérer le composant Clipper
+    // Récupérer le composant Clipper et le configurer
     const clipper = components.get(OBC.Clipper);
     clipper.enabled = true;
-
-    // Configurez la visibilité et la configuration par défaut si nécessaire
     clipper.config = {
         enabled: true,
         visible: true,
@@ -29,28 +53,16 @@ export function createClipper(
         opacity: 0.2,
         size: 5,
     };
-    // Utilisation du canvas de Three.js pour capter le double clic
+
     if (!container) {
         console.warn("Container invalide ou non défini");
         return document.createElement("div");
     }
-    else {
-        container.ondblclick = () => {
-            if (clipper.enabled) {
-                clipper.create(world);
-                console.log("Plan de coupe créé via double clic.");
-            }
-        };
-    }
-    // Suppression d'un plan au clic sur la touche Delete ou Backspace
-    window.onkeydown = (event: KeyboardEvent) => {
-        if ((event.code === "Delete" || event.code === "Backspace") && clipper.enabled) {
-            clipper.delete(world);
-            console.log("Plan de coupe supprimé.");
-        }
-    };
 
-    // Création de l'interface utilisateur pour contrôler le Clipper
+    // Attacher les écouteurs d'événements dans une fonction dédiée
+    attachEventListeners(clipper, world, container);
+
+    // Création de l'interface utilisateur pour le contrôle du clipper
     const ui = BUI.Component.create(() => {
         return BUI.html`
       <div style="padding: 12px;">

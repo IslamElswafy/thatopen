@@ -20,8 +20,6 @@ export function updateRaycasterTargets(components: any, world: any): void {
             }
         });
     }
-
-
     caster.targets = targets;
 }
 
@@ -65,7 +63,6 @@ export function initializeRaycasterHover(
             return;
         }
 
-        // On récupère uniquement le mesh sélectionné
         const selectedMesh = result.object;
         originalMaterials.set(selectedMesh.uuid, selectedMesh.material);
         selectedMesh.material = hoverMaterial;
