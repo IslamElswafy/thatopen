@@ -4,9 +4,9 @@ import * as CUI from "@thatopen/ui-obc";
 import * as THREE from 'three';
 import { useRaycaster } from '../../hooks/useRaycaster';
 import { useRenderer } from '../../hooks/useRenderer';
-import { LoadingDialog } from '../UI/LoadingDialog';
 import { useIFCLoader } from '../../hooks/useIFCLoader';
-import { Section } from '../UI/createSection';
+import { LoadingDialog } from '../UI/LoadingDialog';
+import { SectionsAccordion, SectionItem } from '../UI/SectionsAccordion';
 import { ClipperControl } from '../Controls/ClipperControl';
 import { ClassificationTree } from '../Classification/ClassificationTree';
 import { ModelList } from '../Panels/ModelList';
@@ -17,10 +17,7 @@ const IFCViewer: FC = () => {
 
   // Obtention des composants et du monde
   const { components, world, isInitialized } = useRenderer(containerRef);
-
-  const defaultMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa });
-  const hoverMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5 });
-
+  
   useEffect(() => {
     // Initialisation des managers BUI et CUI
     BUI.Manager.init();
@@ -30,12 +27,10 @@ const IFCViewer: FC = () => {
   // Hook personnalisé pour le chargement IFC
   const { loadIFC } = useIFCLoader(components, world, setIsLoading);
 
-  // Appel du hook pour activer le raycaster avec un effet "hover"
+  // Appel du hook pour activer le raycaster
   useRaycaster({
     components,
     world,
-    defaultMaterial,
-    hoverMaterial,
   });
 
   // Gestion du changement de l'input file
@@ -49,41 +44,42 @@ const IFCViewer: FC = () => {
     }
   };
 
-  // Création des sections (uniquement si components et world sont disponibles)
-  const renderSections = () => {
-    if (!components || !world || !containerRef.current) return null;
-
-    return (
-      <div className="sections-container">
-        <Section label="Classification">
-          <ClassificationTree components={components} />
-        </Section>
-        <Section label="Modèles chargés">
-          <ModelList components={components} />
-        </Section>
-        <Section label="Importation">
-          {/* Utilisation d'un input file pour lancer l'importation */}
-          <input 
-            type="file" 
-            accept=".ifc" 
-            onChange={handleFileChange} 
-          />
-        </Section>
-        <Section label="Plan de coupe">
-          <ClipperControl
-            components={components}
-            world={world}
-            container={containerRef.current}
-          />
-        </Section>
-      </div>
-    );
-  };
-
+  const sections: SectionItem[] = [];
+  if (components && world && containerRef.current) {
+    sections.push({
+      label: 'Classification',
+      content: <ClassificationTree components={components} />,
+    });
+    sections.push({
+      label: 'Modèles chargés',
+      content: <ModelList components={components} />,
+    });
+    sections.push({
+      label: 'Importation',
+      content: (
+        <input 
+          type="file" 
+          accept=".ifc" 
+          onChange={handleFileChange} 
+        />
+      ),
+    });
+    sections.push({
+      label: 'Plan de coupe',
+      content: (
+        <ClipperControl
+          components={components}
+          world={world}
+          container={containerRef.current}
+        />
+      ),
+    });
+  }
+  
   return (
     <div className="viewer-container">
       <div ref={containerRef} className="renderer-container" />
-      {isInitialized && renderSections()}
+      {isInitialized && <SectionsAccordion sections={sections} />}
       {isLoading && <LoadingDialog />}
     </div>
   );

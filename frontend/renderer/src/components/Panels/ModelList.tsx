@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import { Components } from '@thatopen/components';
-import { Paper, Typography, List } from '@mui/material';
+import { Paper, Typography } from '@mui/material';
 import { useModelList } from '../../hooks/useModelList';
 
 interface ModelListProps {
@@ -15,7 +15,9 @@ export const ModelList: FC<ModelListProps> = ({ components }) => {
       <Typography variant="h6" gutterBottom>
         Modèles chargés
       </Typography>
-      <div ref={(node) => node && modelListElement && node.appendChild(modelListElement)} />
+      <div ref={(node) => {
+        if (node && modelListElement) node.appendChild(modelListElement);
+      }} />
     </Paper>
   );
 };

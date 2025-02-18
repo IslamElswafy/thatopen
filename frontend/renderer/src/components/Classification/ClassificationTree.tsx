@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { FC, useCallback } from 'react';
 import { Components } from '@thatopen/components';
 import { Box, Paper, Typography } from '@mui/material';
 import { useClassificationTree } from '../../hooks/useClassificationTree';
@@ -8,14 +8,20 @@ interface ClassificationTreeProps {
 }
 
 export const ClassificationTree: FC<ClassificationTreeProps> = ({ components }) => {
-  const { treeElement, classifications } = useClassificationTree(components);
+  const { treeElement } = useClassificationTree(components);
+
+  const handleRef = useCallback((node: HTMLElement | null) => {
+    if (node && treeElement) {
+      node.appendChild(treeElement);
+    }
+  }, [treeElement]);
 
   return (
     <Paper sx={{ p: 2, m: 1 }}>
       <Typography variant="h6" gutterBottom>
         Classification IFC
       </Typography>
-      <Box ref={(node) => node && treeElement && node.appendChild(treeElement)} />
+      <Box ref={handleRef} />
     </Paper>
   );
 };

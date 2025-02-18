@@ -7,15 +7,13 @@ import { updateRaycasterTargets } from "../services/raycaster";
 export interface UseRaycasterProps {
   components: Components | null;
   world: OBC.World | null;
-  defaultMaterial?: THREE.Material;
-  hoverMaterial?: THREE.Material;
 }
+const defaultMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa });
+const hoverMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5 });
 
 export const useRaycaster = ({
   components,
   world,
-  defaultMaterial,
-  hoverMaterial
 }: UseRaycasterProps) => {
   // Stocker le mesh précédemment survolé
   const previousSelection = useRef<THREE.Mesh | null>(null);
@@ -73,7 +71,7 @@ export const useRaycaster = ({
     return () => {
       window.onmousemove = null;
     };
-  }, [components, world, defaultMaterial, hoverMaterial]);
+  }, [components, world]);
 
   return {
     updateTargets: () => {
