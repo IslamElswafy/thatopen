@@ -1,12 +1,12 @@
-import { FC } from 'react';
+import { FC, Fragment } from 'react';
 import IFCViewer from './components/Viewer/IFCViewer';
 import './App.css';
 
 const App: FC = () => {
   return (
-    <div className="app-container">
+    <Fragment>
       <IFCViewer />
-    </div>
+    </Fragment>
   );
 };
 

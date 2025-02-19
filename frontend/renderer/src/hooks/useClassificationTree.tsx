@@ -1,27 +1,51 @@
 import { useEffect, useState } from 'react';
 import { Components } from '@thatopen/components';
 import * as CUI from '@thatopen/ui-obc';
+import * as OBC from '@thatopen/components';
 
-export const useClassificationTree = (components: Components) => {
+interface Classification {
+  system: string;
+  label: string;
+}
+
+export const useClassificationTree = (components: Components | null) => {
+  const [classifications, setClassifications] = useState<Classification[]>([]);
   const [treeElement, setTreeElement] = useState<HTMLElement | null>(null);
-  const [classifications, setClassifications] = useState<any[]>([]);
 
   useEffect(() => {
-    const { treeElement: tree } = CUI.tables.classificationTree({
+    if (!components) return;
+    const classifier = components.get(OBC.Classifier);
+    const fragmentsManager = components.get(OBC.FragmentsManager);
+    if (!classifier || !fragmentsManager) return;
+
+    // Création initiale du tree via la méthode recommandée
+    const [classificationsTree, updateClassificationsTree] = CUI.tables.classificationTree({
       components,
       classifications: [],
     });
+    setTreeElement(classificationsTree);
 
-    setTreeElement(tree);
+    // Abonnement à l'événement de chargement des fragments
+    const handleFragmentsLoaded = async (model: any) => {
+      // Création de la classification "entities"
+      classifier.byEntity(model);
+      // Création de la classification "predefinedTypes"
+      await classifier.byPredefinedType(model);
 
-    // Écouteur pour les mises à jour de classification
-    const handleClassificationUpdate = (updatedClassifications: any[]) => {
+      // Définition des classifications à afficher
+      const updatedClassifications = [
+        { system: 'entities', label: 'Entities' },
+        { system: 'predefinedTypes', label: 'Predefined Types' },
+      ];
+
+      // Mise à jour de l'état et de l'affichage du tree
       setClassifications(updatedClassifications);
+      updateClassificationsTree({ classifications: updatedClassifications });
     };
 
-    // Nettoyage
+    fragmentsManager.onFragmentsLoaded.add(handleFragmentsLoaded);
     return () => {
-      // Supprimer les écouteurs si nécessaire
+      fragmentsManager.onFragmentsLoaded.remove(handleFragmentsLoaded);
     };
   }, [components]);
 

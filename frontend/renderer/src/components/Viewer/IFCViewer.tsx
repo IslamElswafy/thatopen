@@ -1,22 +1,23 @@
-import { FC, useEffect, useRef, useState, ChangeEvent } from 'react';
+import { FC, useEffect, useRef, useState, ChangeEvent, Fragment } from 'react';
 import * as BUI from "@thatopen/ui";
 import * as CUI from "@thatopen/ui-obc";
-import * as THREE from 'three';
 import { useRaycaster } from '../../hooks/useRaycaster';
 import { useRenderer } from '../../hooks/useRenderer';
 import { useIFCLoader } from '../../hooks/useIFCLoader';
-import { LoadingDialog } from '../UI/LoadingDialog';
+import { useClassificationTree } from '../../hooks/useClassificationTree';
 import { SectionsAccordion, SectionItem } from '../UI/SectionsAccordion';
+import { LoadingDialog } from '../UI/LoadingDialog';
 import { ClipperControl } from '../Controls/ClipperControl';
-import { ClassificationTree } from '../Classification/ClassificationTree';
 import { ModelList } from '../Panels/ModelList';
 
 const IFCViewer: FC = () => {
   const containerRef = useRef<HTMLDivElement>(null!);
+  const classificationContainerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // Obtention des composants et du monde
   const { components, world, isInitialized } = useRenderer(containerRef);
+
   
   useEffect(() => {
     // Initialisation des managers BUI et CUI
@@ -27,11 +28,21 @@ const IFCViewer: FC = () => {
   // Hook personnalisé pour le chargement IFC
   const { loadIFC } = useIFCLoader(components, world, setIsLoading);
 
+  // Hook personnalisé pour la création de l'arbre de classification
+  const { treeElement } = useClassificationTree(components);
+
   // Appel du hook pour activer le raycaster
   useRaycaster({
     components,
     world,
   });
+
+  useEffect(() => {
+    if (treeElement && classificationContainerRef.current && !classificationContainerRef.current.contains(treeElement)) {
+      classificationContainerRef.current.appendChild(treeElement);
+    }
+  }, [treeElement]);
+
 
   // Gestion du changement de l'input file
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -44,16 +55,10 @@ const IFCViewer: FC = () => {
     }
   };
 
+
+
   const sections: SectionItem[] = [];
   if (components && world && containerRef.current) {
-    sections.push({
-      label: 'Classification',
-      content: <ClassificationTree components={components} />,
-    });
-    sections.push({
-      label: 'Modèles chargés',
-      content: <ModelList components={components} />,
-    });
     sections.push({
       label: 'Importation',
       content: (
@@ -64,6 +69,17 @@ const IFCViewer: FC = () => {
         />
       ),
     });
+    sections.push({
+      label: 'Classification',
+      content: (
+        <div ref={classificationContainerRef} />
+      ),
+    });
+    sections.push({
+      label: 'Modèles chargés',
+      content: <ModelList components={components} />,
+    });
+
     sections.push({
       label: 'Plan de coupe',
       content: (
@@ -77,11 +93,21 @@ const IFCViewer: FC = () => {
   }
   
   return (
-    <div className="viewer-container">
-      <div ref={containerRef} className="renderer-container" />
-      {isInitialized && <SectionsAccordion sections={sections} />}
-      {isLoading && <LoadingDialog />}
-    </div>
+      <Fragment>
+        <div ref={containerRef} className="app-container" style={{ position: 'relative' }}>
+          {isInitialized && (
+            <div style={{ position: 'absolute', 
+            top: 10, 
+            right: 10, 
+            zIndex: 1000, 
+            maxHeight: '95vh', 
+            overflowY: 'auto' }}>
+              <SectionsAccordion sections={sections} />
+            </div>
+          )}
+        </div>
+        {isLoading && <LoadingDialog />}
+      </Fragment>
   );
 };
 
