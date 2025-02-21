@@ -28,7 +28,7 @@ export const ClipperControl: FC<ClipperControlProps> = ({ components, world, con
       clipper.config.color = new THREE.Color(color);
       clipper.config.opacity = opacity;
       clipper.config.size = size;
-      console.log("Configuration mise à jour :", { enabled, visible, color, opacity, size });
+      console.debug("Configuration mise à jour :", { enabled, visible, color, opacity, size });
       
       // Force le rafraîchissement du plan de coupe
       if (clipper.config.visible && clipper.delete && clipper.create) {

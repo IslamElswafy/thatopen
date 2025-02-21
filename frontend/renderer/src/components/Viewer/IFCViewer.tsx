@@ -8,12 +8,14 @@ import { useClassificationTree } from '../../hooks/useClassificationTree';
 import { SectionsAccordion, SectionItem } from '../UI/SectionsAccordion';
 import { LoadingDialog } from '../UI/LoadingDialog';
 import { ClipperControl } from '../Controls/ClipperControl';
-import { ModelList } from '../Panels/ModelList';
+import { ModelList } from '../UI/ModelList';
+import { EntityAttributes } from '../Data/EntityAttributes';
 
 const IFCViewer: FC = () => {
   const containerRef = useRef<HTMLDivElement>(null!);
   const classificationContainerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [ifcModel, setIfcModel] = useState<any>(null);
 
   // Obtention des composants et du monde
   const { components, world, isInitialized } = useRenderer(containerRef);
@@ -49,7 +51,8 @@ const IFCViewer: FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      await loadIFC(file);
+      const model = await loadIFC(file);
+      setIfcModel(model);
     } catch(error) {
       console.error("Erreur lors de l'import IFC :", error);
     }
@@ -87,6 +90,16 @@ const IFCViewer: FC = () => {
           components={components}
           world={world}
           container={containerRef.current}
+        />
+      ),
+    });
+    sections.push({
+      label: 'Entités',
+      content: (
+        <EntityAttributes
+          components={components}
+          world={world}
+          model={ifcModel}
         />
       ),
     });
