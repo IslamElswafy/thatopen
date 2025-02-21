@@ -65,11 +65,29 @@ const IFCViewer: FC = () => {
     sections.push({
       label: 'Importation',
       content: (
-        <input 
-          type="file" 
-          accept=".ifc" 
-          onChange={handleFileChange} 
-        />
+        <div>
+          <label 
+            htmlFor="ifc-upload" 
+            style={{
+              display: "inline-block",
+              padding: "5px 10px",
+              backgroundColor: "#007bff",
+              color: "white",
+              borderRadius: "5px",
+              cursor: "pointer",
+              textAlign: "center"
+            }}
+          >
+            Import fichier IFC
+          </label>
+          <input 
+            id="ifc-upload"
+            type="file" 
+            accept=".ifc" 
+            onChange={handleFileChange} 
+            style={{ display: "none" }} 
+          />
+        </div>
       ),
     });
     sections.push({

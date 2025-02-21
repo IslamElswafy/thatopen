@@ -15,11 +15,24 @@ export const SectionsAccordion: FC<SectionsAccordionProps> = ({ sections }) => {
   return (
     <>
       {sections.map((section, index) => (
-        <Accordion key={index}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+        <Accordion key={index}
+        sx={{ 
+          backgroundColor: '#424242', 
+          color: 'white'
+        }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}
+          sx={{ 
+            backgroundColor: '#616161', 
+            color: 'white'
+          }}>
             <Typography variant="subtitle1">{section.label}</Typography>
           </AccordionSummary>
-          <AccordionDetails>
+          <AccordionDetails
+          sx={{
+            backgroundColor: '#424242',
+            color: 'white'
+          }}>
             {section.content}
           </AccordionDetails>
         </Accordion>

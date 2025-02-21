@@ -16,7 +16,7 @@ export const ClipperControl: FC<ClipperControlProps> = ({ components, world, con
   // États contrôlés pour les options du clipper
   const [enabled, setEnabled] = useState<boolean>(true);
   const [visible, setVisible] = useState<boolean>(true);
-  const [color, setColor] = useState<string>("#202932");
+  const [color, setColor] = useState<string>("#a855ac");
   const [opacity, setOpacity] = useState<number>(0.2);
   const [size, setSize] = useState<number>(5);
 
@@ -74,7 +74,7 @@ export const ClipperControl: FC<ClipperControlProps> = ({ components, world, con
   const handleDeleteAll = useCallback(() => {
     if (clipper && clipper.deleteAll) {
       clipper.deleteAll();
-      console.log("Tous les plans de coupe ont été supprimés.");
+      console.debug("Tous les plans de coupe ont été supprimés.");
     }
   }, [clipper]);
 
@@ -90,6 +90,14 @@ export const ClipperControl: FC<ClipperControlProps> = ({ components, world, con
       </Box>
       <Box>
         <Typography variant="subtitle2">Options</Typography>
+        <TextField
+          label="Planes Color"
+          type="color"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+          fullWidth
+          margin="dense"
+        />
         <FormControlLabel
           control={
             <Checkbox
@@ -108,14 +116,7 @@ export const ClipperControl: FC<ClipperControlProps> = ({ components, world, con
           }
           label="Clipper visible"
         />
-        <TextField
-          label="Planes Color"
-          type="color"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-          fullWidth
-          margin="dense"
-        />
+
         <TextField
           label="Planes opacity"
           type="number"
