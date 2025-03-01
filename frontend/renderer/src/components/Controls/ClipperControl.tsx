@@ -13,6 +13,9 @@ interface ClipperControlProps {
 export const ClipperControl: FC<ClipperControlProps> = ({ components, world, container }) => {
   const clipper = components.get(OBC.Clipper);
 
+  // Couleur de texte pour les composants MUI
+  const textColor = "#ffffff";
+
   // États contrôlés pour les options du clipper
   const [enabled, setEnabled] = useState<boolean>(true);
   const [visible, setVisible] = useState<boolean>(true);
@@ -79,7 +82,8 @@ export const ClipperControl: FC<ClipperControlProps> = ({ components, world, con
   }, [clipper]);
 
   return (
-    <Paper elevation={3} sx={{ p: 2, m: 1, maxWidth: 300 }}>
+    <Paper elevation={3} sx={{ p: 2, m: 1, maxWidth: 300, backgroundColor: '#616161', 
+      color: 'white' }}>
       <Typography variant="h6" gutterBottom>
         Clipper Control
       </Typography>
@@ -95,6 +99,9 @@ export const ClipperControl: FC<ClipperControlProps> = ({ components, world, con
           type="color"
           value={color}
           onChange={(e) => setColor(e.target.value)}
+          slotProps={{
+            inputLabel: { style: { color: textColor } }
+          }}
           fullWidth
           margin="dense"
         />
@@ -121,16 +128,22 @@ export const ClipperControl: FC<ClipperControlProps> = ({ components, world, con
           label="Planes opacity"
           type="number"
           value={opacity}
-          inputProps={{ step: "0.01", min: "0.1", max: "1" }}
+          slotProps={{
+            htmlInput: { step: "0.01", min: "0.1", max: "1", style: { color: textColor } },
+            inputLabel: { style: { color: textColor } }
+          }}
           onChange={(e) => setOpacity(parseFloat(e.target.value))}
           fullWidth
           margin="dense"
+  
         />
         <TextField
           label="Planes size"
           type="number"
           value={size}
-          inputProps={{ step: "0.1", min: "2", max: "10" }}
+          slotProps={{ 
+            htmlInput: { step: "0.1", min: "2", max: "10", style: { color: textColor }}, 
+            inputLabel: { style: { color: textColor } } }}
           onChange={(e) => setSize(parseFloat(e.target.value))}
           fullWidth
           margin="dense"

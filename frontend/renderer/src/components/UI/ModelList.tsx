@@ -11,7 +11,11 @@ export const ModelList: FC<ModelListProps> = ({ components }) => {
   const { modelListElement } = useModelList(components);
 
   return (
-    <Paper sx={{ p: 2, m: 1 }}>
+    <Paper sx={{ 
+      p: 2, 
+      m: 1,
+      backgroundColor: '#616161', 
+      color: 'white' }}>
       <Typography variant="h6" gutterBottom>
         Modèles chargés
       </Typography>

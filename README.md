@@ -17,7 +17,7 @@ Ce projet est un visualiseur IFC. Il permet de visualiser, manipuler et analyser
 
 ```bash
 # Cloner le repository
-git clone https://github.com/votre-username/thatopen.git
+git clone https://github.com/gmaOCR/thatopen.git
 
 # Se déplacer dans le dossier du projet
 cd thatopen/frontend/renderer
