@@ -1,12 +1,13 @@
 import * as OBC from "@thatopen/components";
+import * as OBCF from "@thatopen/components-front";
 import * as BUI from "@thatopen/ui";
 import * as CUI from "@thatopen/ui-obc";
+import * as THREE from "three";
 
 export const initManagers = () => {
   BUI.Manager.init();
   CUI.Manager.init();
 };
-
 
 export const initRenderer = (container: HTMLElement) => {
   const components = new OBC.Components();
@@ -26,32 +27,32 @@ export const initRenderer = (container: HTMLElement) => {
   components.init();
 
   // Configuration supplémentaire
-  world.scene.three.background = null;
-  
-  const waitForUniforms = () => {
-    const controls: any = world.camera.controls;
-    // Si la propriété material n'existe pas, on la crée avec l'uniform uZoom
-    if (!controls.material) {
-      controls.material = {
-        uniforms: {
-          uZoom: { value: world.camera.three.zoom || 1 }
-        }
-      };
-    }
-    if (controls.material.uniforms.uZoom !== undefined) {
-      controls.setLookAt(5, 5, 5, 0, 0, 0);
-      world.scene.setup();
-    } else {
-      requestAnimationFrame(waitForUniforms);
-    }
-  };
-  waitForUniforms();
+  world.scene.three.background = new THREE.Color(0x1a1a1a);
   world.scene.setup();
   
+  // Positionner la caméra
+  world.camera.controls.setLookAt(5, 5, 5, 0, 0, 0);
 
   // Ajout de la grille
   const viewerGrids = components.get(OBC.Grids);
   viewerGrids.create(world);
+
+  // Initialiser le streamer pour les gros fichiers IFC
+  const streamer = components.get(OBCF.IfcStreamer);
+  streamer.world = world;
+  
+  // S'assurer que le tiler est disponible
+  const tiler = components.get(OBC.IfcGeometryTiler);
+  if (tiler) {
+    // Préconfiguration pour accélérer le chargement ultérieur
+    tiler.settings.wasm = {
+      path: "https://unpkg.com/web-ifc@0.0.66/",
+      absolute: true
+    };
+    tiler.settings.minGeometrySize = 20;
+    tiler.settings.minAssetsSize = 1000;
+    console.log("IfcGeometryTiler configuré avec succès");
+  }
 
   // Style du conteneur
   container.style.position = "relative";
@@ -60,6 +61,24 @@ export const initRenderer = (container: HTMLElement) => {
 };
 
 export const disposeRenderer = (world: OBC.World) => {
+  // Nettoyer les URL objets
+  const revokeAllObjectURLs = () => {
+    const objectURLs = performance.getEntriesByType('resource')
+      .filter(resource => resource.name.startsWith('blob:'))
+      .map(resource => resource.name);
+    
+    objectURLs.forEach(url => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.warn('Erreur lors de la révocation de URL:', url, " error:", e);
+      }
+    });
+  };
+
+  revokeAllObjectURLs();
+  
+  // Disposer les ressources ThreeJS
   world.renderer?.dispose();
   world.scene?.dispose();
 };
