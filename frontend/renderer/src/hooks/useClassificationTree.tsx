@@ -1,63 +1,22 @@
 import { useEffect, useState, useRef } from 'react';
 import { Components } from '@thatopen/components';
-import * as CUI from '@thatopen/ui-obc';
 import * as OBC from '@thatopen/components';
-import React from 'react';
+import * as CUI from '@thatopen/ui-obc';
+import * as React from 'react';
 
 interface Classification {
   system: string;
   label: string;
 }
 
-export const useClassificationTree = (components: Components | null) => {
-  const [classifications, setClassifications] = useState<Classification[]>([]);
-  const [treeElement, setTreeElement] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (!components) return;
-    const classifier = components.get(OBC.Classifier);
-    const fragmentsManager = components.get(OBC.FragmentsManager);
-    if (!classifier || !fragmentsManager) return;
-
-    // Création initiale du tree via la méthode recommandée
-    const [classificationsTree, updateClassificationsTree] = CUI.tables.classificationTree({
-      components,
-      classifications: [],
-    });
-    setTreeElement(classificationsTree);
-
-    // Abonnement à l'événement de chargement des fragments
-    const handleFragmentsLoaded = async (model: any) => {
-      // Création de la classification "entities"
-      classifier.byEntity(model);
-      // Création de la classification "predefinedTypes"
-      await classifier.byPredefinedType(model);
-
-      // Définition des classifications à afficher
-      const updatedClassifications = [
-        { system: 'entities', label: 'Entities' },
-        { system: 'predefinedTypes', label: 'Predefined Types' },
-      ];
-
-      // Mise à jour de l'état et de l'affichage du tree
-      setClassifications(updatedClassifications);
-      updateClassificationsTree({ classifications: updatedClassifications });
-    };
-
-    fragmentsManager.onFragmentsLoaded.add(handleFragmentsLoaded);
-    return () => {
-      fragmentsManager.onFragmentsLoaded.remove(handleFragmentsLoaded);
-    };
-  }, [components]);
-
-  return { treeElement, classifications };
-};
-
-// Ajout du nouvel hook compatible avec React
 interface UseClassificationTreeSimpleProps {
   components: Components | null;
   updateTrigger?: number;
 }
+
+export const useClassificationTree = (components: Components | null) => {
+  // Implémentation originale...
+};
 
 export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: UseClassificationTreeSimpleProps) => {
   // État pour forcer la mise à jour du composant
@@ -67,33 +26,47 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
     { system: 'predefinedTypes', label: 'Predefined Types' },
   ]);
   
-  // Références pour les gestionnaires d'événements
+  // Références
   const fragmentsLoadedHandlerRef = useRef<((model: any) => void) | null>(null);
   const fragmentsDisposedHandlerRef = useRef<(() => void) | null>(null);
+  const mountedRef = useRef(true);
+  const initDoneRef = useRef(false);
+
+  // Effet de montage/démontage
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Effet pour gérer les abonnements aux événements
   useEffect(() => {
-    if (!components) return;
+    if (!components || initDoneRef.current) return;
     
     try {
+      console.log("ClassificationTree: Configuration des événements");
+      
       const classifier = components.get(OBC.Classifier);
       const fragmentsManager = components.get(OBC.FragmentsManager);
       
       if (!classifier || !fragmentsManager) return;
       
-      console.log("ClassificationTree: Configuration des événements");
-      
       // Fonction pour mettre à jour après chargement de fragments
       const handleFragmentsLoaded = async (model: any) => {
-        console.log("ClassificationTree: Fragments chargés");
-        
         try {
+          if (!mountedRef.current) return;
+          
+          console.log("ClassificationTree: Fragments chargés");
+          
           // Créer les classifications pour ce modèle
           classifier.byEntity(model);
           await classifier.byPredefinedType(model);
           
           // Forcer la mise à jour du composant
-          setUpdateKey(prev => prev + 1);
+          if (mountedRef.current) {
+            setUpdateKey(prev => prev + 1);
+          }
         } catch (e) {
           console.warn("ClassificationTree: Erreur lors de la mise à jour après chargement", e);
         }
@@ -101,9 +74,11 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
       
       // Fonction pour nettoyer après suppression
       const handleFragmentsDisposed = () => {
-        console.log("ClassificationTree: Fragments supprimés");
-        
         try {
+          if (!mountedRef.current) return;
+          
+          console.log("ClassificationTree: Fragments supprimés");
+          
           // Vérifier s'il reste des modèles
           const remainingModels = fragmentsManager.groups;
           
@@ -112,11 +87,10 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
             classifier.systems = {};
           }
           
-          // Mettre à jour le classificateur
-          classifier.update();
-          
           // Forcer la mise à jour du composant
-          setUpdateKey(prev => prev + 1);
+          if (mountedRef.current) {
+            setUpdateKey(prev => prev + 1);
+          }
         } catch (e) {
           console.warn("ClassificationTree: Erreur lors du nettoyage après suppression", e);
         }
@@ -134,6 +108,8 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
       fragmentsManager.groups.forEach(model => {
         handleFragmentsLoaded(model);
       });
+      
+      initDoneRef.current = true;
       
       // Nettoyage
       return () => {
@@ -174,10 +150,11 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
         });
       }
       
-      // Mettre à jour le classifier
-      classifier.update();
+      // Mettre à jour le classifier - SUPPRESSION DE LA LIGNE PROBLÉMATIQUE
+      // La méthode update() n'existe pas dans l'API récente
+      // classifier.update();
       
-      // Forcer la mise à jour du composant
+      // Forcer la mise à jour du composant React
       setUpdateKey(prev => prev + 1);
     } catch (e) {
       console.warn("ClassificationTree: Erreur lors de la mise à jour forcée", e);

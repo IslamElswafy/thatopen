@@ -1,267 +1,191 @@
-import { FC, useEffect, useState, useRef } from 'react';
-import * as OBC from '@thatopen/components';
+import { FC, useEffect, useRef, useState } from 'react';
 import { Paper, Typography, Box, CircularProgress } from '@mui/material';
-import { useStreamingService } from '../../services/streaming';
+import * as BUI from '@thatopen/ui';
+import * as CUI from '@thatopen/ui-obc';
+import * as OBC from '@thatopen/components';
+import * as OBF from "@thatopen/components-front";
 
-interface EntityAttributesProps {
-  components: OBC.Components;
-  world: OBC.World;
+interface EntityAttributesPanelProps {
+  components: OBC.Components | null;
+  world: OBC.World | null;
   model: any;
 }
 
-export const EntityAttributes: FC<EntityAttributesProps> = ({ components, world, model }) => {
-  // États pour gérer l'interface utilisateur
-  const [loading, setLoading] = useState(false);
+export const EntityAttributes: FC<EntityAttributesPanelProps> = ({ components, world, model }) => {
+  const panelContainerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedEntityName, setSelectedEntityName] = useState<string | null>(null);
-  const [attributes, setAttributes] = useState<Record<string, any>[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [initialized, setInitialized] = useState<boolean>(false);
   
-  // Références pour gérer le cycle de vie et les nettoyages
-  const isMounted = useRef(true);
-  const highlighterListenerRef = useRef<any>(null);
-  const processedModelRef = useRef<string | null>(null);
-  const streamingService = useStreamingService(components, world);
+  // Références pour les gestionnaires
+  const indexerRef = useRef<any>(null);
+  const highlighterRef = useRef<any>(null);
+  const updateTableRef = useRef<((options: any) => void) | null>(null);
+  const modelRef = useRef<any>(null);
 
-  // Nettoyage à la destruction du composant
+  // Effet de nettoyage
   useEffect(() => {
-    isMounted.current = true;
     return () => {
-      isMounted.current = false;
-      cleanupEventListeners();
+      try {
+        if (highlighterRef.current?.events?.select) {
+          if (highlighterRef.current.events.select.onHighlight) {
+            highlighterRef.current.events.select.onHighlight.clear();
+          }
+          if (highlighterRef.current.events.select.onClear) {
+            highlighterRef.current.events.select.onClear.clear();
+          }
+        }
+        if (panelContainerRef.current) {
+          panelContainerRef.current.innerHTML = '';
+        }
+      } catch (e) {
+        console.warn("EntityAttributes: Erreur lors du nettoyage:", e);
+      }
     };
   }, []);
 
-  // Fonction de nettoyage des écouteurs
-  const cleanupEventListeners = () => {
-    if (highlighterListenerRef.current && components) {
-      try {
-        const highlighter = components.get(OBC.FragmentHighlighter);
-        if (highlighter) {
-          highlighter.events.off("selection-changed", highlighterListenerRef.current);
-          highlighterListenerRef.current = null;
-        }
-      } catch (e) {
-        console.warn("Erreur lors du nettoyage des écouteurs:", e);
-      }
-    }
-  };
-
-  // Effet pour traiter le modèle et configurer les écouteurs
+  // Effet principal d'initialisation
   useEffect(() => {
-    // Si pas de modèle ou si on a déjà traité ce modèle, ne rien faire
-    if (!model || !components || processedModelRef.current === model.uuid) {
+    if (!components || !world || !model) {
+      console.log("EntityAttributes: Dépendances manquantes");
       return;
     }
 
-    console.log("EntityAttributes: Début de l'indexation du modèle");
-    setLoading(true);
-    setError(null);
-    setAttributes([]);
-    setSelectedEntityName(null);
+    // Éviter la réinitialisation si même modèle
+    if (modelRef.current === model && initialized) {
+      console.log("EntityAttributes: Modèle déjà initialisé");
+      return;
+    }
 
-    // Nettoyer les écouteurs précédents
-    cleanupEventListeners();
-
-    const setupModelListeners = async () => {
+    const initializePanel = async () => {
       try {
-        // Détecter si c'est un FragmentsGroup ou un modèle streamé
-        const isFragmentGroup = model.type === 'Group' || (model.userData && model.userData.type === 'FragmentsGroup');
-        console.log("EntityAttributes: Modèle reconnu comme", isFragmentGroup ? "FragmentsGroup" : "Standard");
+        setLoading(true);
+        setError(null);
+        modelRef.current = model;
 
-        // Obtenir le gestionnaire de propriétés
-        const propertiesManager = components.get(OBC.IfcPropertiesManager);
-        const attributesManager = components.get(OBC.IfcAttributesManager);
-        
-        if (!propertiesManager || !attributesManager) {
-          throw new Error("Gestionnaires de propriétés non disponibles");
+        console.log("EntityAttributes: Initialisation...");
+
+        // Obtenir les composants nécessaires
+        const fragmentManager = components.get(OBC.FragmentsManager);
+        const indexer = components.get(OBC.IfcRelationsIndexer);
+
+        if (!fragmentManager || !indexer) {
+          throw new Error("Composants requis non disponibles");
         }
 
-        // Si c'est un modèle streamé, charger les propriétés via le streamer
-        if (isFragmentGroup && streamingService) {
-          console.log("EntityAttributes: Tentative de chargement des propriétés via streamer");
-          try {
-            if (model.properties) {
-              console.log("EntityAttributes: Utilisation des données streamées directement");
-            } else {
-              await streamingService.loadModelProperties(model);
-            }
-          } catch (e) {
-            console.warn("Impossible de charger les propriétés via streamer:", e);
-          }
-        } else if (propertiesManager) {
-          // Pour les modèles standards, procéder à l'indexation classique
-          await propertiesManager.process(model);
-        }
+        // Indexer le modèle
+        console.log("EntityAttributes: Indexation des propriétés...");
+        await indexer.process(model);
+        indexerRef.current = indexer;
 
-        // Configurer l'écouteur pour la sélection
-        const onSelectionChanged = (selection: any[]) => {
-          if (!isMounted.current) return;
+        // Créer la table d'attributs avec définition complète
+        const [table, updateTable] = CUI.tables.entityAttributes({
+          components,
+          fragmentIdMap: {},
+          tableDefinition: {},
+          attributesToInclude: () => ["Name", "Description", "ContainedInStructure"],
+        });
 
-          if (selection.length === 0) {
-            setSelectedEntityName(null);
-            setAttributes([]);
-            return;
-          }
+        // Configurer la table
+        table.expanded = true;
+        table.indentationInText = true;
+        table.preserveStructureOnFilter = true;
+        updateTableRef.current = updateTable;
 
-          try {
-            const fragment = selection[0].fragment;
-            const entityId = selection[0].id;
+        // Configurer le gestionnaire de fragments
+        fragmentManager.onFragmentsLoaded.add((group: any) => {
+          if (!updateTableRef.current) return;
+          console.log("EntityAttributes: Fragments chargés", group);
+        });
 
-            // Obtenir les attributs de l'entité sélectionnée
-            if (attributesManager) {
-              const entityData = attributesManager.getAttributes(fragment, entityId);
-              
-              // Formater les données pour l'affichage
-              const formattedAttributes: Record<string, any>[] = [];
-              
-              // Ajouter les attributs principaux
-              Object.entries(entityData).forEach(([key, value]) => {
-                if (key !== 'psets') {
-                  formattedAttributes.push({
-                    key,
-                    value: String(value),
-                    isPset: false
-                  });
-                }
-              });
-              
-              // Ajouter le nom de l'entité pour l'affichage
-              let entityName = entityData.Name || entityData.GlobalId || `Entity #${entityId}`;
-              setSelectedEntityName(entityName);
-              
-              // Ajouter les property sets s'ils existent
-              if (entityData.psets) {
-                Object.entries(entityData.psets).forEach(([psetName, psetData]) => {
-                  Object.entries(psetData as Record<string, any>).forEach(([propKey, propValue]) => {
-                    if (propKey !== 'name') {
-                      formattedAttributes.push({
-                        key: propKey,
-                        value: String(propValue),
-                        isPset: true,
-                        psetName
-                      });
-                    }
-                  });
-                });
-              }
-              
-              setAttributes(formattedAttributes);
-            }
-          } catch (e) {
-            console.warn("Erreur lors de l'obtention des attributs:", e);
-            setError("Impossible de charger les attributs de l'élément sélectionné");
-          }
-        };
-
-        // Enregistrer l'écouteur pour la sélection
-        const highlighter = components.get(OBC.FragmentHighlighter);
+        // Configurer le highlighter pour la sélection
+        const highlighter = components.get(OBF.Highlighter);
         if (highlighter) {
-          highlighterListenerRef.current = onSelectionChanged;
-          highlighter.events.on("selection-changed", onSelectionChanged);
+          highlighterRef.current = highlighter;
+          highlighter.setup({ world });
+
+          // Configurer la sélection multiple
+          highlighter.multiple = "shiftKey";
+
+          // Écouter la sélection
+          highlighter.events.select.onHighlight.add((fragmentIdMap: Record<string, Set<number>>) => {
+            if (!updateTableRef.current) return;
+            console.log("EntityAttributes: Sélection mise à jour", fragmentIdMap);
+            updateTableRef.current({ fragmentIdMap });
+          });
+
+          // Écouter la désélection
+          highlighter.events.select.onClear.add(() => {
+            if (!updateTableRef.current) return;
+            console.log("EntityAttributes: Sélection effacée");
+            updateTableRef.current({ fragmentIdMap: {} });
+          });
         }
 
-        // Mettre à jour l'état
-        processedModelRef.current = model.uuid;
+        // Écouter la suppression des fragments
+        fragmentManager.onFragmentsDisposed.add((event: { groupID: string, fragmentIDs: string[] }) => {
+          if (!updateTableRef.current) return;
+          console.log("EntityAttributes: Fragments supprimés", event);
+          updateTableRef.current({ fragmentIdMap: {} });
+        });
+
+        // Créer et injecter le panneau
+        if (panelContainerRef.current) {
+          const panel = BUI.Component.create(() => {
+            return BUI.html`
+              <div class="entities-attributes-panel" 
+                   style="max-height: 400px; overflow-y: auto; color: #333333;">
+                ${table}
+              </div>`;
+          });
+
+          panelContainerRef.current.innerHTML = '';
+          panelContainerRef.current.appendChild(panel);
+        }
+
+        setInitialized(true);
+        console.log("EntityAttributes: Initialisation terminée");
+
+      } catch (e) {
+        console.error("EntityAttributes: Erreur:", e);
+        setError(e instanceof Error ? e.message : "Erreur inconnue");
+      } finally {
         setLoading(false);
-
-      } catch (err) {
-        console.error("Erreur lors de l'indexation du modèle:", err);
-        if (isMounted.current) {
-          setError(err instanceof Error ? err.message : "Erreur inconnue");
-          setLoading(false);
-        }
       }
     };
 
-    setupModelListeners();
+    // Démarrer l'initialisation avec un léger délai
+    const timer = setTimeout(initializePanel, 100);
+    return () => clearTimeout(timer);
 
-    return () => {
-      cleanupEventListeners();
-    };
-  }, [model, components, world, streamingService]);
-
-  // Effet pour réinitialiser quand le modèle devient null
-  useEffect(() => {
-    if (!model && processedModelRef.current) {
-      processedModelRef.current = null;
-      setAttributes([]);
-      setSelectedEntityName(null);
-      cleanupEventListeners();
-    }
-  }, [model]);
+  }, [components, world, model]);
 
   return (
-    <Paper sx={{ p: 2, backgroundColor: '#424242', color: 'white' }}>
+    <Paper sx={{ p: 2, backgroundColor: '#424242', color: 'white', height: '100%', overflowY: 'auto' }}>
       <Typography variant="h6" gutterBottom>
         Propriétés de l'entité
       </Typography>
-
+      
       {!model && (
         <Typography variant="body2" sx={{ color: '#aaa', fontStyle: 'italic' }}>
           Aucun modèle chargé. Veuillez importer un modèle IFC.
         </Typography>
       )}
-
-      {model && !selectedEntityName && !loading && (
-        <Typography variant="body2" sx={{ color: '#aaa', fontStyle: 'italic' }}>
-          Sélectionnez un élément du modèle pour voir ses attributs.
-        </Typography>
-      )}
-
+      
       {loading && (
         <Box display="flex" alignItems="center" my={2}>
           <CircularProgress size={20} sx={{ color: 'white', mr: 1 }} />
           <Typography variant="body2">Chargement des attributs...</Typography>
         </Box>
       )}
-
+      
       {error && (
         <Typography variant="body2" sx={{ color: '#ff7777', my: 2 }}>
-          Erreur: {error}
+          {error}
         </Typography>
       )}
-
-      {selectedEntityName && (
-        <Box mt={2}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-            {selectedEntityName}
-          </Typography>
-
-          <Box sx={{ 
-            maxHeight: '300px', 
-            overflowY: 'auto', 
-            mt: 1,
-            border: '1px solid #555',
-            borderRadius: '4px'
-          }}>
-            {attributes.length === 0 ? (
-              <Typography variant="body2" sx={{ p: 1, color: '#aaa', fontStyle: 'italic' }}>
-                Aucun attribut disponible pour cet élément.
-              </Typography>
-            ) : (
-              attributes.map((attr, index) => (
-                <Box 
-                  key={`${attr.key}-${index}`}
-                  sx={{ 
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    p: 1,
-                    borderBottom: index < attributes.length - 1 ? '1px solid #555' : 'none',
-                    backgroundColor: attr.isPset ? '#4a4a4a' : 'transparent'
-                  }}
-                >
-                  <Typography variant="body2" sx={{ fontWeight: 'medium', mr: 2 }}>
-                    {attr.isPset ? `${attr.psetName} › ${attr.key}` : attr.key}
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: '#ccc', maxWidth: '50%', wordBreak: 'break-word' }}>
-                    {attr.value}
-                  </Typography>
-                </Box>
-              ))
-            )}
-          </Box>
-        </Box>
-      )}
+      
+      <div ref={panelContainerRef} style={{ minHeight: '50px' }} />
     </Paper>
   );
 };
