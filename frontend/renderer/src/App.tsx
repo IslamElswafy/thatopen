@@ -1,13 +1,15 @@
-import { FC, Fragment } from 'react';
 import IFCViewer from './components/Viewer/IFCViewer';
+import ErrorBoundary from './components/ErrorBoundary';
 import './App.css';
 
-const App: FC = () => {
+function App() {
   return (
-    <Fragment>
-      <IFCViewer />
-    </Fragment>
+    <ErrorBoundary>
+      <div className="app">
+        <IFCViewer />
+      </div>
+    </ErrorBoundary>
   );
-};
+}
 
 export default App;
