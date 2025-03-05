@@ -24,7 +24,7 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
   
   // Références
   const fragmentsLoadedHandlerRef = useRef<((model: any) => void) | null>(null);
-  const fragmentsDisposedHandlerRef = useRef<(() => void) | null>(null);
+  const fragmentsDisposedHandlerRef = useRef<((event?: any) => void) | null>(null);
   const mountedRef = useRef(true);
   const initDoneRef = useRef(false);
 
@@ -69,28 +69,58 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
       };
       
       // Fonction pour nettoyer après suppression
-      const handleFragmentsDisposed = () => {
+// Fonction pour nettoyer après suppression - Version corrigée
+const handleFragmentsDisposed = (event: any) => {
+  try {
+    if (!mountedRef.current) return;
+    
+    console.log("ClassificationTree: Fragments supprimés", event?.groupID || "inconnu");
+    
+    const classifier = components.get(OBC.Classifier);
+    const fragmentsManager = components.get(OBC.FragmentsManager);
+    
+    if (!classifier || !fragmentsManager) return;
+    
+    // Vérifier s'il reste des modèles
+    const remainingModelsCount = Object.keys(fragmentsManager.groups).length;
+    
+    if (remainingModelsCount === 0) {
+      // Plus de modèle, réinitialiser le classifier
+      console.log("ClassificationTree: Plus aucun modèle, classifier réinitialisé");
+      classifier.list = {};
+    } else {
+      // Il reste des modèles, reconstruire les classifications
+      console.log("ClassificationTree: Reconstruction pour les modèles restants");
+      
+      // Important: Réinitialiser d'abord le classifier
+      classifier.list = {};
+      
+      // Puis reconstruire pour chaque modèle restant
+      // IMPORTANT: Vérifier que le modèle est valide avant de l'utiliser
+      Object.values(fragmentsManager.groups).forEach(model => {
         try {
-          if (!mountedRef.current) return;
-          
-          console.log("ClassificationTree: Fragments supprimés");
-          
-          // Vérifier s'il reste des modèles
-          const remainingModels = Object.keys(fragmentsManager.groups).length;
-          
-          if (remainingModels === 0) {
-            // Plus de modèle, réinitialiser le classifier
-            classifier.list = {};
+          // Vérifier que le modèle est valide et a des données
+          if (model && model.userData && model.userData.type === 'FragmentsGroup') {
+            classifier.byEntity(model);
+            classifier.byPredefinedType(model);
           }
-          
-          // Forcer la mise à jour du composant
-          if (mountedRef.current) {
-            setUpdateKey(prev => prev + 1);
-          }
-        } catch (e) {
-          console.warn("ClassificationTree: Erreur lors du nettoyage après suppression", e);
+        } catch (modelError) {
+          console.warn("ClassificationTree: Erreur lors du traitement d'un modèle", modelError);
         }
-      };
+      });
+    }
+    
+    // Forcer la mise à jour du composant
+    if (mountedRef.current) {
+      // Utiliser un délai plus long pour s'assurer que toutes les opérations sont terminées
+      setTimeout(() => {
+        setUpdateKey(Date.now()); // Utiliser un timestamp pour garantir une valeur unique
+      }, 100);
+    }
+  } catch (e) {
+    console.warn("ClassificationTree: Erreur lors du nettoyage après suppression", e);
+  }
+};
       
       // Stocker les références aux handlers
       fragmentsLoadedHandlerRef.current = handleFragmentsLoaded;
@@ -157,6 +187,64 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
     }
   }, [components, updateTrigger]);
   
+  // Ajouter cet effet après les autres effets existants
+  useEffect(() => {
+    if (!components) return;
+    
+    const handleClassificationUpdate = () => {
+      try {
+        console.log("ClassificationTree: Mise à jour déclenchée par événement global");
+        
+        const classifier = components.get(OBC.Classifier);
+        const fragmentsManager = components.get(OBC.FragmentsManager);
+        
+        if (!classifier || !fragmentsManager) return;
+        
+        // Vérifier s'il reste des modèles
+        const remainingModelsCount = Object.keys(fragmentsManager.groups).length;
+        
+        if (remainingModelsCount === 0) {
+          // Plus de modèle, réinitialiser le classifier
+          classifier.list = {};
+        } else {
+          // Reconstruire pour tous les modèles restants
+          classifier.list = {}; // D'abord vider
+          
+          // Puis reconstruire pour chaque modèle
+          // IMPORTANT: Vérifier que le modèle est valide avant de l'utiliser
+          Object.values(fragmentsManager.groups).forEach(model => {
+            try {
+              // Vérifier que le modèle est valide et a des données
+              if (model && model.userData && model.userData.type === 'FragmentsGroup') {
+                classifier.byEntity(model);
+                classifier.byPredefinedType(model);
+              }
+            } catch (modelError) {
+              console.warn("ClassificationTree: Erreur lors du traitement d'un modèle", modelError);
+            }
+          });
+        }
+        
+        // Forcer la mise à jour du composant
+        if (mountedRef.current) {
+          setTimeout(() => {
+            setUpdateKey(Date.now());
+          }, 100);
+        }
+      } catch (e) {
+        console.warn("ClassificationTree: Erreur lors de la mise à jour forcée par événement", e);
+      }
+    };
+    
+    // Abonner à l'événement global
+    document.addEventListener('model-classifications-update', handleClassificationUpdate);
+    
+    // Nettoyer lors du démontage
+    return () => {
+      document.removeEventListener('model-classifications-update', handleClassificationUpdate);
+    };
+  }, [components]);
+  
   // Fonction pour mettre à jour les données de classification manuellement
   const updateClassificationData = (newClassifications: Classification[] = classifications) => {
     setClassifications(newClassifications);
@@ -166,11 +254,12 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
   // Composant pour afficher l'arbre de classification
   const ClassificationTreeComponent = React.memo(() => {
     const containerRef = useRef<HTMLDivElement>(null);
-    const classifier = components?.get(OBC.Classifier);
+    const classifier = components?.get(OBC.Classifier); // Décommenter cette ligne
     const fragmentsManager = components?.get(OBC.FragmentsManager);
     
-    // Vérifier si nous avons des modèles pour afficher un message approprié
+    // Vérifier si nous avons des modèles et des classifications
     const hasModels = fragmentsManager && Object.keys(fragmentsManager.groups).length > 0;
+    const hasClassifications = classifier && Object.keys(classifier.list || {}).length > 0;
     
     useEffect(() => {
       if (!containerRef.current || !components) return;
@@ -181,24 +270,35 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
           containerRef.current.removeChild(containerRef.current.firstChild);
         }
         
-        // Créer l'arbre seulement si nous avons des modèles
-        if (hasModels) {
+        // Créer l'arbre seulement si nous avons des modèles ET des classifications
+        if (hasModels && hasClassifications) {
+          console.log("ClassificationTree: Création de l'arbre de classification");
           const [tree] = CUI.tables.classificationTree({
             components,
             classifications,
           });
           
           // Ajouter l'arbre au conteneur
-          containerRef.current.appendChild(tree);
+          if (containerRef.current) {
+            containerRef.current.appendChild(tree);
+          }
+        } else {
+          console.log("ClassificationTree: Pas de données pour l'arbre", 
+                     { hasModels, hasClassifications });
         }
       } catch (e) {
         console.error("ClassificationTree: Erreur lors du rendu", e);
       }
-    }, [components, classifications, hasModels]); // Dépendances valides
+    }, [hasModels, hasClassifications]);
     
     // Si aucun modèle n'est chargé, afficher un message
     if (!hasModels) {
       return <div>Aucun modèle chargé pour afficher la classification.</div>;
+    }
+    
+    // Si nous avons des modèles mais pas de classifications, afficher un message d'attente
+    if (!hasClassifications) {
+      return <div>Chargement des classifications...</div>;
     }
     
     return (
@@ -215,7 +315,7 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
   });
   
   return {
-    ClassificationTreeComponent: () => <ClassificationTreeComponent key={updateKey} />,
+    ClassificationTreeComponent,
     updateClassificationData
   };
 };

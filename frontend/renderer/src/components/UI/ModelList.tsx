@@ -17,9 +17,16 @@ export const ModelList: FC<ModelListProps> = ({ components, onDeleteModel }) => 
     const handleModelDelete = (e: CustomEvent) => {
       try {
         const { modelId } = e.detail;
+        
+        // Appeler le handler de suppression fourni par le parent
         if (onDeleteModel) {
           onDeleteModel(modelId);
         }
+        
+        // AJOUT: Émettre un événement pour mettre à jour les classifications
+        // Cet événement sera capté par useClassificationTree
+        document.dispatchEvent(new CustomEvent('model-classifications-update'));
+        
       } catch (error) {
         console.error("Erreur lors de la suppression:", error);
         setError("Erreur lors de la suppression du modèle");
@@ -50,6 +57,9 @@ export const ModelList: FC<ModelListProps> = ({ components, onDeleteModel }) => 
           onClick={() => {
             try {
               refreshModelList();
+              
+              // AJOUT: Mettre également à jour les classifications lors du rafraîchissement
+              document.dispatchEvent(new CustomEvent('model-classifications-update'));
             } catch (error) {
               console.error("Erreur lors du rafraîchissement:", error);
               setError("Erreur lors du rafraîchissement de la liste");
