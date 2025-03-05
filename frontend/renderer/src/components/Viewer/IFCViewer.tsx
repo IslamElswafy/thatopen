@@ -43,7 +43,7 @@ const IFCViewer: FC = () => {
 
   // Hooks personnalisés
   const { loadIFC, removeModel, loadedModels } = useIFCLoader(components, world, setIsLoading);
-  const { ClassificationTreeComponent, updateClassificationData } = useClassificationTreeSimple({ 
+  const { ClassificationTreeComponent } = useClassificationTreeSimple({ 
     components, 
     updateTrigger: classificationUpdateCounter 
   });
@@ -95,12 +95,6 @@ const IFCViewer: FC = () => {
       
       setIfcModel(model);
       console.log('Modèle chargé avec succès');
-      
-      // Force update of classification after a delay to ensure everything is processed
-      setTimeout(() => {
-        console.log("Mise à jour des classifications après chargement");
-        setClassificationUpdateCounter(prev => prev + 1);
-      }, 1000);
       
     } catch(error) {
       console.error("Erreur lors de l'import IFC :", error);

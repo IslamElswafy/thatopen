@@ -14,10 +14,6 @@ interface UseClassificationTreeSimpleProps {
   updateTrigger?: number;
 }
 
-export const useClassificationTree = (components: Components | null) => {
-  // Implémentation originale...
-};
-
 export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: UseClassificationTreeSimpleProps) => {
   // État pour forcer la mise à jour du composant
   const [updateKey, setUpdateKey] = useState(0);
@@ -80,11 +76,11 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
           console.log("ClassificationTree: Fragments supprimés");
           
           // Vérifier s'il reste des modèles
-          const remainingModels = fragmentsManager.groups;
+          const remainingModels = Object.keys(fragmentsManager.groups).length;
           
-          if (remainingModels.length === 0) {
+          if (remainingModels === 0) {
             // Plus de modèle, réinitialiser le classifier
-            classifier.systems = {};
+            classifier.list = {};
           }
           
           // Forcer la mise à jour du composant
@@ -140,8 +136,8 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
       if (!classifier || !fragmentsManager) return;
       
       // S'il n'y a pas de modèles, réinitialiser le classifier
-      if (fragmentsManager.groups.length === 0) {
-        classifier.systems = {};
+      if  (Object.keys(fragmentsManager.groups).length === 0) {
+        classifier.list = {};
       } else {
         // Reconstruire pour tous les modèles
         fragmentsManager.groups.forEach(model => {
@@ -170,6 +166,11 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
   // Composant pour afficher l'arbre de classification
   const ClassificationTreeComponent = React.memo(() => {
     const containerRef = useRef<HTMLDivElement>(null);
+    const classifier = components?.get(OBC.Classifier);
+    const fragmentsManager = components?.get(OBC.FragmentsManager);
+    
+    // Vérifier si nous avons des modèles pour afficher un message approprié
+    const hasModels = fragmentsManager && Object.keys(fragmentsManager.groups).length > 0;
     
     useEffect(() => {
       if (!containerRef.current || !components) return;
@@ -180,18 +181,25 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
           containerRef.current.removeChild(containerRef.current.firstChild);
         }
         
-        // Créer l'arbre
-        const [tree] = CUI.tables.classificationTree({
-          components,
-          classifications,
-        });
-        
-        // Ajouter l'arbre au conteneur
-        containerRef.current.appendChild(tree);
+        // Créer l'arbre seulement si nous avons des modèles
+        if (hasModels) {
+          const [tree] = CUI.tables.classificationTree({
+            components,
+            classifications,
+          });
+          
+          // Ajouter l'arbre au conteneur
+          containerRef.current.appendChild(tree);
+        }
       } catch (e) {
         console.error("ClassificationTree: Erreur lors du rendu", e);
       }
-    }, [updateKey]);
+    }, [components, classifications, hasModels]); // Dépendances valides
+    
+    // Si aucun modèle n'est chargé, afficher un message
+    if (!hasModels) {
+      return <div>Aucun modèle chargé pour afficher la classification.</div>;
+    }
     
     return (
       <div 
@@ -201,12 +209,13 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
           maxHeight: "400px", 
           overflowY: "auto" 
         }} 
+        data-testid="classification-tree-container"
       />
     );
   });
   
   return {
-    ClassificationTreeComponent,
+    ClassificationTreeComponent: () => <ClassificationTreeComponent key={updateKey} />,
     updateClassificationData
   };
 };
