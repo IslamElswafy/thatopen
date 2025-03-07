@@ -3,6 +3,7 @@ import { Components, World } from "@thatopen/components";
 import * as OBC from "@thatopen/components";
 import * as THREE from "three";
 import { Paper, Box, Typography, Checkbox, TextField, Button, FormControlLabel } from "@mui/material";
+import { safeExecute } from "../../services/errorHandling";
 
 interface ClipperControlProps {
   components: Components;
@@ -26,18 +27,23 @@ export const ClipperControl: FC<ClipperControlProps> = ({ components, world, con
   // Met à jour la configuration et force le rafraîchissement du clipper
   useEffect(() => {
     if (clipper) {
-      clipper.config.enabled = enabled;
-      clipper.config.visible = visible;
-      clipper.config.color = new THREE.Color(color);
-      clipper.config.opacity = opacity;
-      clipper.config.size = size;
-      console.debug("Configuration mise à jour :", { enabled, visible, color, opacity, size });
-      
-      // Force le rafraîchissement du plan de coupe
-      if (clipper.config.visible && clipper.delete && clipper.create) {
-        clipper.delete(world);
-        clipper.create(world);
-      }
+      safeExecute(
+        async () => {
+          clipper.config.enabled = enabled;
+          clipper.config.visible = visible;
+          clipper.config.color = new THREE.Color(color);
+          clipper.config.opacity = opacity;
+          clipper.config.size = size;
+          console.debug("Configuration mise à jour :", { enabled, visible, color, opacity, size });
+          
+          // Force le rafraîchissement du plan de coupe
+          if (clipper.config.visible && clipper.delete && clipper.create) {
+            clipper.delete(world);
+            clipper.create(world);
+          }
+        },
+        'mise à jour de la configuration du clipper'
+      );
     }
   }, [enabled, visible, color, opacity, size, clipper, world]);
 
@@ -75,10 +81,15 @@ export const ClipperControl: FC<ClipperControlProps> = ({ components, world, con
 
   // Callback pour supprimer tous les plans de coupe
   const handleDeleteAll = useCallback(() => {
-    if (clipper && clipper.deleteAll) {
-      clipper.deleteAll();
-      console.debug("Tous les plans de coupe ont été supprimés.");
-    }
+    safeExecute(
+      async () => {
+        if (clipper && clipper.deleteAll) {
+          clipper.deleteAll();
+          console.debug("Tous les plans de coupe ont été supprimés.");
+        }
+      },
+      'suppression de tous les plans de coupe'
+    );
   }, [clipper]);
 
   return (

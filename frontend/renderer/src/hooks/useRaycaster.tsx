@@ -26,50 +26,62 @@ export const useRaycaster = ({
     const casters = components.get(OBC.Raycasters);
     const caster = casters.get(world) as any;
 
-    window.onmousemove = () => {
+    interface RaycastResult {
+      object: THREE.Object3D;
+      distance: number;
+      point: THREE.Vector3;
+      face?: THREE.Face;
+      faceIndex?: number;
+      uv?: THREE.Vector2;
+    }
+
+    const handleMouseMove = (event: MouseEvent): void => {
       // Reconstruit les cibles à chaque mouvement
       updateRaycasterTargets(components, world);
 
       // Si un mesh était survolé, on restaure son matériau d'origine
       if (previousSelection.current) {
-        const prev = previousSelection.current;
-        if (prev.userData.originalMaterial) {
-          if (Array.isArray(prev.userData.originalMaterial)) {
-            prev.material = prev.userData.originalMaterial.map((mat: THREE.Material) => mat.clone());
-          } else {
-            prev.material = prev.userData.originalMaterial.clone();
-          }
-          delete prev.userData.originalMaterial;
+      const prev = previousSelection.current;
+      if (prev.userData.originalMaterial) {
+        if (Array.isArray(prev.userData.originalMaterial)) {
+        prev.material = prev.userData.originalMaterial.map((mat: THREE.Material) => mat.clone());
         } else {
-          prev.material = defaultMaterial.clone();
+        prev.material = prev.userData.originalMaterial.clone();
         }
-        previousSelection.current = null;
+        delete prev.userData.originalMaterial;
+      } else {
+        prev.material = defaultMaterial.clone();
+      }
+      previousSelection.current = null;
       }
 
-      const result = caster.castRay(caster.targets);
+      const result: RaycastResult | null = caster.castRay(caster.targets);
       if (!result || !(result.object instanceof THREE.Mesh)) return;
 
-      const selectedMesh = result.object as THREE.Mesh;
+      const selectedMesh: THREE.Mesh = result.object as THREE.Mesh;
       // Sauvegarde le matériau d'origine en clonant
       if (!selectedMesh.userData.originalMaterial) {
-        if (Array.isArray(selectedMesh.material)) {
-          selectedMesh.userData.originalMaterial = selectedMesh.material.map((mat: THREE.Material) => mat.clone());
-        } else if (selectedMesh.material && typeof selectedMesh.material.clone === "function") {
-          selectedMesh.userData.originalMaterial = selectedMesh.material.clone();
-        }
+      if (Array.isArray(selectedMesh.material)) {
+        selectedMesh.userData.originalMaterial = selectedMesh.material.map((mat: THREE.Material) => mat.clone());
+      } else if (selectedMesh.material && typeof selectedMesh.material.clone === "function") {
+        selectedMesh.userData.originalMaterial = selectedMesh.material.clone();
+      }
       }
       // Applique le hoverMaterial en clonant
       if (Array.isArray(selectedMesh.material)) {
-        selectedMesh.material = selectedMesh.material.map(() => hoverMaterial.clone());
+      selectedMesh.material = selectedMesh.material.map(() => hoverMaterial.clone());
       } else {
-        selectedMesh.material = hoverMaterial.clone();
+      selectedMesh.material = hoverMaterial.clone();
       }
 
       previousSelection.current = selectedMesh;
     };
 
+    window.addEventListener('mousemove', handleMouseMove);
+  
     return () => {
-      window.onmousemove = null;
+      // Cette fonction doit être appelée lors du démontage
+      window.removeEventListener('mousemove', handleMouseMove);
     };
   }, [components, world]);
 

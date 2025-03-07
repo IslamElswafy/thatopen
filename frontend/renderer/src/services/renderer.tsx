@@ -44,11 +44,7 @@ export const initRenderer = (container: HTMLElement) => {
   // S'assurer que le tiler est disponible
   const tiler = components.get(OBC.IfcGeometryTiler);
   if (tiler) {
-    // Préconfiguration pour accélérer le chargement ultérieur
-    tiler.settings.wasm = {
-      path: "https://unpkg.com/web-ifc@0.0.66/",
-      absolute: true
-    };
+    // Autres configurations spécifiques au tiler
     tiler.settings.minGeometrySize = 20;
     tiler.settings.minAssetsSize = 1000;
     console.log("IfcGeometryTiler configuré avec succès");
