@@ -1,10 +1,9 @@
-import { FC, useEffect, useState } from 'react';
-import { Paper, Typography, Button, Box, Alert } from '@mui/material';
-import * as OBC from '@thatopen/components';
+import React, { FC, useEffect, useState } from 'react';
+import { Components } from '@thatopen/components';
 import { useModelList } from '../../hooks/useModelList';
 
 interface ModelListProps {
-  components: OBC.Components;
+  components: Components | null;
   onDeleteModel?: (modelId: string) => void;
 }
 
@@ -14,21 +13,35 @@ export const ModelList: FC<ModelListProps> = ({ components, onDeleteModel }) => 
 
   // Écouter l'événement de demande de suppression
   useEffect(() => {
-    const handleModelDelete = (e: CustomEvent) => {
+    const handleModelDelete = async (e: CustomEvent) => {
       try {
+        if (!e || !e.detail) {
+          console.warn("ModelList: Événement de suppression invalide");
+          return;
+        }
+        
         const { modelId } = e.detail;
+        
+        if (!modelId) {
+          console.warn("ModelList: ID de modèle manquant dans l'événement");
+          return;
+        }
+        
+        console.log(`ModelList: Demande de suppression du modèle ${modelId}`);
+        setError(null);
         
         // Appeler le handler de suppression fourni par le parent
         if (onDeleteModel) {
-          onDeleteModel(modelId);
+          await onDeleteModel(modelId);
+        } else {
+          console.warn(`ModelList: Aucun gestionnaire de suppression défini pour le modèle ${modelId}`);
         }
         
-        // AJOUT: Émettre un événement pour mettre à jour les classifications
-        // Cet événement sera capté par useClassificationTree
-        document.dispatchEvent(new CustomEvent('model-classifications-update'));
+        // Rafraîchir la liste après suppression
+        refreshModelList();
         
       } catch (error) {
-        console.error("Erreur lors de la suppression:", error);
+        console.error("ModelList: Erreur lors de la suppression", error);
         setError("Erreur lors de la suppression du modèle");
       }
     };
@@ -38,54 +51,30 @@ export const ModelList: FC<ModelListProps> = ({ components, onDeleteModel }) => 
     return () => {
       document.removeEventListener('model-delete-requested', handleModelDelete as EventListener);
     };
-  }, [onDeleteModel]);
+  }, [onDeleteModel, refreshModelList]);
 
+  // Afficher l'élément de liste de modèles
   return (
-    <Paper sx={{ 
-      p: 2, 
-      m: 1,
-      backgroundColor: '#616161', 
-      color: 'white' }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">
-          Modèles chargés
-        </Typography>
-        <Button 
-          variant="outlined" 
-          size="small" 
-          sx={{ color: 'white', borderColor: 'white' }}
-          onClick={() => {
-            try {
-              refreshModelList();
-              
-              // AJOUT: Mettre également à jour les classifications lors du rafraîchissement
-              document.dispatchEvent(new CustomEvent('model-classifications-update'));
-            } catch (error) {
-              console.error("Erreur lors du rafraîchissement:", error);
-              setError("Erreur lors du rafraîchissement de la liste");
-            }
-          }}>
-          Actualiser
-        </Button>
-      </Box>
-      
-      {error && (
-        <Alert severity="error" sx={{ mb: 2, backgroundColor: '#424242', color: 'white' }}>
-          {error}
-        </Alert>
-      )}
-      
-      <div ref={(node) => {
-        if (node && modelListElement && !node.contains(modelListElement)) {
+    <div className="model-list-container">
+      <div 
+        ref={node => { 
           try {
-            node.innerHTML = '';
-            node.appendChild(modelListElement);
-          } catch (error) {
-            console.error("Erreur lors de l'ajout du modelListElement:", error);
-            setError("Erreur lors de l'affichage de la liste des modèles");
+            // Si le nœud existe et que modelListElement existe, attacher modelListElement au nœud
+            if (node && modelListElement) {
+              // S'assurer que le nœud est vide avant d'ajouter modelListElement
+              if (!node.contains(modelListElement)) {
+                node.innerHTML = '';
+                node.appendChild(modelListElement);
+              }
+            }
+          } catch (err) {
+            console.error("ModelList: Erreur lors de l'attachement de l'élément", err);
           }
-        }
-      }} />
-    </Paper>
+        }} 
+        className="model-list"
+        data-testid="model-list"
+      />
+      {error && <div className="error-message">{error}</div>}
+    </div>
   );
 };

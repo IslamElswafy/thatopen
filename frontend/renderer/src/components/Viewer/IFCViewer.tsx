@@ -1,4 +1,4 @@
-import { FC, useEffect, useRef, useState, ChangeEvent, Fragment } from 'react';
+import { FC, useEffect, useRef, useState, ChangeEvent, Fragment, useCallback } from 'react';
 import * as BUI from "@thatopen/ui";
 import * as CUI from "@thatopen/ui-obc";
 import * as OBC from "@thatopen/components";
@@ -22,7 +22,7 @@ const IFCViewer: FC = () => {
   const [isGeneratingTiles, setIsGeneratingTiles] = useState(false);
   const [ifcModel, setIfcModel] = useState<any>(null);
   const [useStreaming, setUseStreaming] = useState(false);
-  const [classificationUpdateCounter, setClassificationUpdateCounter] = useState(0);
+  const [classificationUpdateCounter] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   // Obtention des composants et du monde
@@ -113,12 +113,11 @@ const IFCViewer: FC = () => {
   };
 
   // Fonction pour gérer la suppression de modèle
-  const handleModelDelete = async (modelId: string) => {
+  const handleModelDelete = useCallback(async (modelId: string) => {
     if (!components || !world) return;
     
     try {
-      console.log(`Suppression du modèle ${modelId}`);
-      setError(null);
+      console.log(`IFCViewer: Suppression du modèle ${modelId}`);
       
       const modelToDelete = loadedModels.find(m => m.uuid === modelId);
       if (!modelToDelete) {
@@ -126,15 +125,15 @@ const IFCViewer: FC = () => {
         return;
       }
       
-      // Avant de supprimer, vérifier si c'est le modèle actif
+      // Vérifier si c'est le modèle actif
       const isActiveModel = ifcModel && ifcModel.uuid === modelId;
       
-      // Nettoyer les ressources spécifiques au streamer si nécessaire
+      // Nettoyer les ressources spécifiques au streamer
       if (streamingService && modelToDelete.userData?.updateStreamerFunction) {
-        streamingService.cleanupModel(modelToDelete);
+        await streamingService.cleanupModel(modelToDelete);
       }
       
-      // Supprimer le modèle
+      // Supprimer le modèle - opération synchronisée
       await removeModel(modelToDelete);
       
       // Si c'était le modèle actif, réinitialiser ifcModel
@@ -142,30 +141,19 @@ const IFCViewer: FC = () => {
         setIfcModel(null);
       }
       
-      // Forcer la mise à jour avec un délai plus long pour s'assurer que toutes les opérations sont terminées
-      setTimeout(() => {
-        console.log("Forcer l'actualisation de la classification après suppression");
-        try {
-          // Si les composants existent toujours, mettre à jour le classifier
-          if (components) {
-            const classifier = components.get(OBC.Classifier);
-            if (classifier) {
-              classifier.update();
-            }
-          }
-          // Mettre à jour le compteur pour déclencher la réactualisation
-          setClassificationUpdateCounter(prev => prev + 1);
-        } catch (err) {
-          console.warn("Erreur lors de la mise à jour des classifications:", err);
-        }
-      }, 500);
+      // Mise à jour du classifier - sans setTimeout
+      const classifier = components.get(OBC.Classifier);
+      if (classifier) {
+        classifier.update();
+      }
       
-      console.log(`Modèle ${modelId} supprimé avec succès`);
+      // La mise à jour de l'UI est gérée par les événements dans ModelList et ClassificationTree
+      return true;
     } catch (error) {
-      console.error("Erreur lors de la suppression du modèle:", error);
-      setError(error instanceof Error ? error.message : "Erreur lors de la suppression du modèle");
+      console.error("IFCViewer: Erreur lors de la suppression", error);
+      throw error;
     }
-  };
+  }, [components, world, loadedModels, ifcModel, streamingService, removeModel]);
 
   const sections: SectionItem[] = [];
   if (components && world && containerRef.current) {

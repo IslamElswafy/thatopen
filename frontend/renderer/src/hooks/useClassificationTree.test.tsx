@@ -342,4 +342,88 @@ describe('useClassificationTreeSimple Hook', () => {
     console.debug("TEST: Nombre d'appels à classificationTree après suppression:", (CUI.tables.classificationTree as jest.Mock).mock.calls.length);
 });
 
+  it('devrait afficher un message quand tous les modèles sont supprimés', async () => {
+    // Configuration initiale avec deux modèles
+    mockFragmentsManager.groups = {
+      model1: { uuid: 'model1', userData: { type: 'FragmentsGroup' } },
+      model2: { uuid: 'model2', userData: { type: 'FragmentsGroup' } }
+    };
+    
+    // Configurer le classifier avec des données pour ces modèles
+    mockClassifier.list = {
+      entities: { 
+        'IfcWall': { map: { 'model1': [1, 2, 3], 'model2': [4, 5, 6] }, name: 'Walls', id: 1 },
+      },
+      predefinedTypes: {
+        'WALL': { map: { 'model1': [1, 2, 3], 'model2': [4, 5, 6] }, name: 'Wall', id: 2 }
+      }
+    };
+    
+    // Initialiser notre hook
+    const { result } = renderHook(() => 
+      useClassificationTreeSimple({ components: mockComponents })
+    );
+    
+    // Attendre que le hook soit initialisé
+    await waitFor(() => {
+      expect(mockComponents.get).toHaveBeenCalledWith(OBC.Classifier);
+    });
+    
+    // Récupérer directement le handler qui a été passé lors de l'appel à 'add'
+    const disposedHandler = mockFragmentsManager.onFragmentsDisposed.add.mock.calls[0][0];
+    expect(disposedHandler).toBeDefined();
+    
+    // Monter le composant
+    const root = ReactDOM.createRoot(container);
+    
+    act(() => {
+      root.render(<result.current.ClassificationTreeComponent />);
+    });
+    
+    act(() => {
+      jest.runAllTimers();
+    });
+    
+    // Vérifier que l'arbre est affiché initialement
+    expect(CUI.tables.classificationTree).toHaveBeenCalledTimes(1);
+    
+    // Maintenant simuler la suppression de tous les modèles
+    act(() => {
+      // Vider tous les modèles
+      mockFragmentsManager.groups = {};
+      
+      // Déclencher le handler de suppression pour le premier modèle
+      disposedHandler({ groupID: 'model1' });
+      // Puis pour le second
+      disposedHandler({ groupID: 'model2' });
+    });
+    
+    // Avancer les timers pour permettre au state de se mettre à jour
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+    
+    // Réinitialiser le mock pour pouvoir vérifier ses appels subséquents
+    (CUI.tables.classificationTree as jest.Mock).mockClear();
+    
+    // Forcer un re-render pour voir les changements
+    act(() => {
+      root.render(<result.current.ClassificationTreeComponent />);
+    });
+    
+    // Dans l'UI, on devrait maintenant avoir le message "Aucun modèle chargé..."
+    expect(container.textContent).toContain("Aucun modèle chargé pour afficher la classification");
+    
+    // Le composant ne devrait PAS essayer de créer un nouvel arbre de classification
+    expect(CUI.tables.classificationTree).not.toHaveBeenCalled();
+    
+    // Vérifier que le classifier a été réinitialisé
+    expect(mockClassifier.list).toEqual({});
+    
+    // Nettoyer
+    act(() => {
+      root.unmount();
+    });
+  });
+
 });

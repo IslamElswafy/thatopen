@@ -1,108 +1,168 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import * as OBC from '@thatopen/components';
 import * as CUI from '@thatopen/ui-obc';
 
 export const useModelList = (components: OBC.Components | null) => {
   const [modelListElement, setModelListElement] = useState<HTMLElement | null>(null);
-  const modelListRef = useRef<any>(null);
+  const modelListRef = useRef<{ updateTable?: () => void } | null>(null);
+  const initDoneRef = useRef(false);
+  const mountedRef = useRef(true);
 
+  // Effet de montage/démontage
   useEffect(() => {
-    if (!components) return;
-    
-    try {
-      // Créer la liste des modèles
-      const [modelist, api] = CUI.tables.modelsList({
-        components,
-        tags: { 
-          schema: true, 
-          viewDefinition: false 
-        },
-        actions: { 
-          download: false,
-          dispose: true,
-        }
-      });
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
-      // Stocker la référence à l'API pour pouvoir la mettre à jour
-      modelListRef.current = api;
-      setModelListElement(modelist);
+  // Initialisation et abonnement aux événements
+  useEffect(() => {
+    if (!components || initDoneRef.current) return;
+
+    try {
+      console.log("ModelList: Initialisation");
       
-      // Mettre à jour explicitement la liste des modèles lorsque les fragments sont chargés/supprimés
+      const fragmentsManager = components.get(OBC.FragmentsManager);
+      
+      if (!fragmentsManager) {
+        console.warn("ModelList: FragmentsManager non disponible");
+        return;
+      }
+      
+      // Créer la liste des modèles
+      let element: HTMLElement | null = null;
+      let api: { updateTable?: () => void } = {};
+      
       try {
-        const fragmentsManager = components.get(OBC.FragmentsManager);
+        // Capturer les erreurs potentielles lors de la création de la liste
+        const result = CUI.tables.modelsList({
+          components,
+          async onClickElement([model]) {
+            console.log("ModelList: Modèle sélectionné", model?.uuid);
+          },
+        });
         
-        if (fragmentsManager && fragmentsManager.onFragmentsLoaded && fragmentsManager.onFragmentsDisposed) {
-          const onFragmentsLoaded = () => {
-            if (modelListRef.current) {
-              try {
-                modelListRef.current.updateTable();
-              } catch (e) {
-                console.warn("Erreur lors de la mise à jour de la table après chargement:", e);
-              }
-            }
-          };
-          
-// Dans le handler onFragmentsDisposed
-const onFragmentsDisposed = () => {
-  try {
-    console.log("ModelList: Fragments supprimés");
-    
-    // Vérifier que modelListRef.current et updateTable existent
-    if (modelListRef.current && typeof modelListRef.current.updateTable === 'function') {
-      modelListRef.current.updateTable();
-    } else {
-      console.log("ModelList: updateTable non disponible, rafraîchissement manuel nécessaire");
-      // Alternativement, recréer la liste ou effectuer une autre action
-    }
-  } catch (error) {
-    console.error("Erreur lors de la mise à jour de la table après suppression:", error);
-  }
-};
-          
-          // Vérifier que les méthodes add et remove existent avant de les appeler
-          if (typeof fragmentsManager.onFragmentsLoaded.add === 'function') {
-            fragmentsManager.onFragmentsLoaded.add(onFragmentsLoaded);
-          }
-          
-          if (typeof fragmentsManager.onFragmentsDisposed.add === 'function') {
-            fragmentsManager.onFragmentsDisposed.add(onFragmentsDisposed);
-          }
-          
-          return () => {
-            // Vérifier que la méthode remove existe avant de l'appeler
-            if (typeof fragmentsManager.onFragmentsLoaded.remove === 'function') {
-              fragmentsManager.onFragmentsLoaded.remove(onFragmentsLoaded);
-            }
-            
-            if (typeof fragmentsManager.onFragmentsDisposed.remove === 'function') {
-              fragmentsManager.onFragmentsDisposed.remove(onFragmentsDisposed);
-            }
-            
-            modelListElement?.remove();
-          };
+        // Validation du résultat
+        if (Array.isArray(result) && result.length >= 2) {
+          element = result[0] as HTMLElement;
+          api = result[1] as { updateTable?: () => void };
+        } else {
+          throw new Error("Format de retour inattendu pour modelsList");
         }
       } catch (error) {
-        console.warn("Erreur lors de l'accès au FragmentsManager:", error);
+        console.error("Erreur lors de la création de la liste de modèles:", error);
+        
+        // Créer un élément de secours
+        element = document.createElement('div');
+        element.textContent = "Liste des modèles indisponible";
+        element.style.padding = "10px";
+        element.style.color = "white";
+        
+        // API de secours
+        api = {
+          updateTable: () => {
+            console.log("ModelList: Méthode updateTable de secours appelée");
+          }
+        };
       }
+      
+      // Toujours définir une méthode updateTable pour éviter les erreurs
+      if (!api || typeof api.updateTable !== 'function') {
+        console.warn("ModelList: API invalide, création d'une méthode updateTable de secours");
+        api = api || {};
+        api.updateTable = () => {
+          console.log("ModelList: Méthode updateTable de secours appelée");
+        };
+      }
+      
+      // Stocker l'élément et l'API
+      setModelListElement(element);
+      modelListRef.current = api;
+      
+      // Fonction pour mettre à jour après chargement de fragments
+      const onFragmentsLoaded = (model: any) => {
+        try {
+          if (!mountedRef.current) return;
+          
+          console.log("ModelList: Fragments chargés", model?.uuid);
+          
+          // Mise à jour sécurisée de la table
+          if (modelListRef.current && typeof modelListRef.current.updateTable === 'function') {
+            modelListRef.current.updateTable();
+          } else {
+            console.warn("ModelList: updateTable non disponible après chargement");
+          }
+        } catch (error) {
+          console.error("ModelList: Erreur lors de la mise à jour après chargement", error);
+        }
+      };
+      
+      // Fonction pour nettoyer après suppression
+      const onFragmentsDisposed = (event: any) => {
+        try {
+          if (!mountedRef.current) return;
+          
+          console.log("ModelList: Fragments supprimés", event?.groupID);
+          
+          // Mise à jour sécurisée de la table
+          if (modelListRef.current && typeof modelListRef.current.updateTable === 'function') {
+            modelListRef.current.updateTable();
+          } else {
+            console.warn("ModelList: updateTable non disponible après suppression");
+          }
+          
+          // Émettre l'événement pour informer les autres composants
+          try {
+            document.dispatchEvent(new CustomEvent('model-classifications-update'));
+          } catch (e) {
+            console.error("ModelList: Erreur lors de l'émission de l'événement", e);
+          }
+        } catch (error) {
+          console.error("ModelList: Erreur lors de la mise à jour après suppression", error);
+        }
+      };
+      
+      // Abonner aux événements
+      fragmentsManager.onFragmentsLoaded.add(onFragmentsLoaded);
+      fragmentsManager.onFragmentsDisposed.add(onFragmentsDisposed);
+      
+      initDoneRef.current = true;
+      
+      // Nettoyage
+      return () => {
+        if (fragmentsManager && mountedRef.current) {
+          fragmentsManager.onFragmentsLoaded.remove(onFragmentsLoaded);
+          fragmentsManager.onFragmentsDisposed.remove(onFragmentsDisposed);
+        }
+      };
     } catch (error) {
-      console.error("Erreur lors de la création de la liste des modèles:", error);
+      console.error("ModelList: Erreur lors de l'initialisation", error);
     }
-    
-    return () => {
-      modelListElement?.remove();
-    };
   }, [components]);
 
-  // Fonction pour forcer la mise à jour de la liste
-  const refreshModelList = () => {
-    if (modelListRef.current) {
-      try {
+  // Fonction pour rafraîchir manuellement la liste des modèles
+  const refreshModelList = useCallback(() => {
+    try {
+      console.log("ModelList: Rafraîchissement manuel");
+      
+      // Mise à jour sécurisée de la table
+      if (modelListRef.current && typeof modelListRef.current.updateTable === 'function') {
         modelListRef.current.updateTable();
-      } catch (error) {
-        console.warn("Erreur lors de la mise à jour de la table:", error);
+      } else {
+        console.warn("ModelList: updateTable non disponible pour le rafraîchissement manuel");
       }
+      
+      // Émettre l'événement pour mettre à jour les classifications
+      try {
+        document.dispatchEvent(new CustomEvent('model-classifications-update'));
+      } catch (e) {
+        console.error("ModelList: Erreur lors de l'émission de l'événement", e);
+      }
+    } catch (error) {
+      console.error("ModelList: Erreur lors du rafraîchissement manuel", error);
     }
-  };
+  }, []);
 
   return { modelListElement, refreshModelList };
 };
