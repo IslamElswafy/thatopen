@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react';
-import { useRaycaster } from './useRaycaster';
+import { useRaycaster } from '../hooks/useRaycaster';
 import * as OBC from '@thatopen/components';
 import { updateRaycasterTargets } from '../services/raycaster';
 

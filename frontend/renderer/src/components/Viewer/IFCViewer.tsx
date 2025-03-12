@@ -117,7 +117,7 @@ const IFCViewer: FC = () => {
     if (!components || !world) return;
     
     try {
-      console.log(`IFCViewer: Suppression du modèle ${modelId}`);
+      console.log(`IFCViewer: DEBUG SUPPRESSION - Début de la suppression du modèle ${modelId}`);
       
       const modelToDelete = loadedModels.find(m => m.uuid === modelId);
       if (!modelToDelete) {
@@ -141,19 +141,23 @@ const IFCViewer: FC = () => {
         setIfcModel(null);
       }
       
-      // // Mise à jour du classifier - sans setTimeout
-      // const classifier = components.get(OBC.Classifier);
-      // if (classifier) {
-      //   classifier.update();
-      // }
+      // Vérification supplémentaire post-suppression
+      const fragmentsManager = components.get(OBC.FragmentsManager);
+      const remainingModels = fragmentsManager ? Object.keys(fragmentsManager.groups || {}).length : 0;
+      console.log(`IFCViewer: DEBUG SUPPRESSION - Après suppression, modèles restants: ${remainingModels}`);
       
-      // La mise à jour de l'UI est gérée par les événements dans ModelList et ClassificationTree
+      // Émission d'événement explicite si plus aucun modèle
+      if (remainingModels === 0) {
+        console.log("IFCViewer: DEBUG SUPPRESSION - Plus aucun modèle, émission de l'événement all-models-removed");
+        document.dispatchEvent(new CustomEvent('all-models-removed'));
+      }
+      
       return true;
-    } catch (error) {
-      console.error("IFCViewer: Erreur lors de la suppression", error);
+    } catch(error) {
+      console.error("IFCViewer: DEBUG SUPPRESSION - Erreur lors de la suppression", error);
       throw error;
     }
-  }, [components, world, loadedModels, ifcModel, streamingService, removeModel]);
+  }, [components, world, streamingService, removeModel, ifcModel, setIfcModel, classificationUpdateCounter]);
 
   const sections: SectionItem[] = [];
   if (components && world && containerRef.current) {

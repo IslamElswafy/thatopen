@@ -1,4 +1,5 @@
-module.exports = {
+// Utiliser la syntaxe ESM compatible avec "type": "module" dans package.json
+export default {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
   roots: ['<rootDir>/src'],
@@ -15,5 +16,6 @@ module.exports = {
         }
       }
     ]
-  }
-};
+  },
+  extensionsToTreatAsEsm: ['.ts', '.tsx']
+}

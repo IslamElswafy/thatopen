@@ -1,6 +1,6 @@
 // src/hooks/useRenderer.test.tsx
 import { renderHook } from '@testing-library/react';
-import { useRenderer } from './useRenderer';
+import { useRenderer } from '../hooks/useRenderer';
 import * as OBC from "@thatopen/components";
 import { initRenderer, disposeRenderer, initManagers } from '../services/renderer';
 

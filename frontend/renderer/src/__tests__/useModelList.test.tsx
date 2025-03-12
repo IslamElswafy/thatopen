@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react';
-import { useModelList } from './useModelList';
+import { useModelList } from '../hooks/useModelList';
 import * as OBC from '@thatopen/components';
 
 // Création directe d'un HTMLElement comme retour du mock

@@ -45,6 +45,10 @@ export const generateTilesFromIFC = async (
   console.log('Démarrage de la génération des tuiles...');
 
   // Configuration du tiler
+  tiler.settings.wasm = {
+    path: "https://unpkg.com/web-ifc@0.0.66/",
+    absolute: true,
+  };
   tiler.settings.minGeometrySize = 20; // Taille minimale des géométries
   tiler.settings.minAssetsSize = 1000; // Taille minimale des assets
 

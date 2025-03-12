@@ -1,8 +1,8 @@
 import { renderHook, act } from '@testing-library/react';
-import { useIFCLoader } from './useIFCLoader';
+import { useIFCLoader } from '../hooks/useIFCLoader';
 import * as OBC from '@thatopen/components';
 import * as THREE from 'three';
-import { createMockComponents, createMockWorld } from '../test/__mocks__/mockComponents';
+import { createMockComponents, createMockWorld } from './__mocks__/components';
 import { updateRaycasterTargets } from '../services/raycaster';
 
 // Mock pour le service raycaster pour éviter l'erreur

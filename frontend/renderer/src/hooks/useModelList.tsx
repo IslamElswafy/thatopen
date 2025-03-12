@@ -98,7 +98,7 @@ export const useModelList = (components: OBC.Components | null) => {
         }
       };
       
-      // Fonction pour nettoyer après suppression
+      // Fonction pour nettoyer après suppression - modification pour améliorer la communication
       const onFragmentsDisposed = (event: any) => {
         try {
           if (!mountedRef.current) return;
@@ -112,9 +112,20 @@ export const useModelList = (components: OBC.Components | null) => {
             console.warn("ModelList: updateTable non disponible après suppression");
           }
           
-          // Émettre l'événement pour informer les autres composants
+          // Obtenir le compteur actuel de modèles
+          const fragmentsManager = components?.get(OBC.FragmentsManager);
+          const modelCount = fragmentsManager ? Object.keys(fragmentsManager.groups || {}).length : 0;
+          
+          // Émettre l'événement approprié
           try {
+            // Toujours émettre cet événement général
             document.dispatchEvent(new CustomEvent('model-classifications-update'));
+            
+            // Si tous les modèles ont été supprimés, émettre un événement spécial
+            if (modelCount === 0) {
+              console.log("ModelList: Tous les modèles ont été supprimés");
+              document.dispatchEvent(new CustomEvent('all-models-removed'));
+            }
           } catch (e) {
             console.error("ModelList: Erreur lors de l'émission de l'événement", e);
           }
@@ -153,16 +164,27 @@ export const useModelList = (components: OBC.Components | null) => {
         console.warn("ModelList: updateTable non disponible pour le rafraîchissement manuel");
       }
       
-      // Émettre l'événement pour mettre à jour les classifications
+      // Vérifier si tous les modèles ont été supprimés
+      const fragmentsManager = components?.get(OBC.FragmentsManager);
+      const modelCount = fragmentsManager ? Object.keys(fragmentsManager.groups || {}).length : 0;
+      
+      // Émettre les événements appropriés
       try {
+        // Toujours émettre cet événement général
         document.dispatchEvent(new CustomEvent('model-classifications-update'));
+        
+        // Si tous les modèles ont été supprimés, émettre un événement spécial
+        if (modelCount === 0) {
+          console.log("ModelList: Rafraîchissement - tous les modèles ont été supprimés");
+          document.dispatchEvent(new CustomEvent('all-models-removed'));
+        }
       } catch (e) {
         console.error("ModelList: Erreur lors de l'émission de l'événement", e);
       }
     } catch (error) {
       console.error("ModelList: Erreur lors du rafraîchissement manuel", error);
     }
-  }, []);
+  }, [components]);
 
   return { modelListElement, refreshModelList };
 };
