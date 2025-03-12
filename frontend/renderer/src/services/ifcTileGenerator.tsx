@@ -45,10 +45,6 @@ export const generateTilesFromIFC = async (
   console.log('Démarrage de la génération des tuiles...');
 
   // Configuration du tiler
-  tiler.settings.wasm = {
-    path: "https://unpkg.com/web-ifc@0.0.66/",
-    absolute: true
-  };
   tiler.settings.minGeometrySize = 20; // Taille minimale des géométries
   tiler.settings.minAssetsSize = 1000; // Taille minimale des assets
 
@@ -62,7 +58,7 @@ export const generateTilesFromIFC = async (
   let globalDataFileName = "";
 
   // Configuration des écouteurs d'événements
-  const onGeometryStreamedHandler = (geometry: GeometryData) => {
+  const onGeometryStreamedHandler = async (geometry: GeometryData) => {
     const { buffer, data } = geometry;
     const bufferFileName = `${modelName}-processed-geometries-${geometryFilesCount}`;
     
@@ -76,11 +72,11 @@ export const generateTilesFromIFC = async (
     geometryFilesCount++;
   };
   
-  const onAssetStreamedHandler = (assets: any) => {
+  const onAssetStreamedHandler = async (assets: any) => {
     assetsData = [...assetsData, ...assets];
   };
   
-  const onIfcLoadedHandler = (groupBuffer: Uint8Array) => {
+  const onIfcLoadedHandler = async (groupBuffer: Uint8Array) => {
     globalDataFileName = `${modelName}-processed-global`;
     files.push({
       name: globalDataFileName,
@@ -167,7 +163,7 @@ export const prepareStreamingData = (
   }
   
   // Mise à jour du chemin pour le fichier global
-  streamingData.globalDataFileId = urlMap.get(tileResult.globalDataFileName);
+  streamingData.globalDataFileId = urlMap.get(tileResult.globalDataFileName) || '';
   
   return streamingData;
 };

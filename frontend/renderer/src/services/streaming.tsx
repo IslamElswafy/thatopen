@@ -1,3 +1,4 @@
+import * as THREE from "three";
 import * as OBC from "@thatopen/components";
 import * as OBCF from "@thatopen/components-front";
 import { generateTilesFromIFC, saveTilesToStorage, prepareStreamingData } from './ifcTileGenerator';
@@ -98,7 +99,9 @@ export class StreamingService {
       }
     };
     
-    this.world.camera.controls.addEventListener('sleep', updateStreamerHandler);
+    if (this.world.camera?.controls) {
+      this.world.camera.controls.addEventListener('sleep', updateStreamerHandler);
+    }
     
     // Stockage de la référence pour nettoyage
     model.userData.updateStreamerFunction = updateStreamerHandler;
@@ -112,11 +115,15 @@ export class StreamingService {
    */
   public async loadModelProperties(model: THREE.Object3D): Promise<void> {
     const streamer = this.components.get(OBCF.IfcStreamer);
-    if (!streamer || typeof streamer.loadProperties !== 'function') {
-      throw new Error("Fonction loadProperties non disponible sur le streamer");
+    if (!streamer) {
+      throw new Error("Streamer non disponible");
     }
     
-    await streamer.loadProperties(model);
+    if (!model.userData.streamSettings) {
+      throw new Error("Model streaming settings not found");
+    }
+    
+    await streamer.load(model.userData.streamSettings, true, undefined);
   }
 
   /**
@@ -133,7 +140,7 @@ export class StreamingService {
    * @param model - Modèle à nettoyer
    */
   public cleanupModel(model: THREE.Object3D): void {
-    if (model.userData.updateStreamerFunction) {
+    if (model.userData.updateStreamerFunction && this.world.camera.controls) {
       this.world.camera.controls.removeEventListener('sleep', model.userData.updateStreamerFunction);
       delete model.userData.updateStreamerFunction;
     }

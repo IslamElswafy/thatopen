@@ -470,7 +470,6 @@ export const useClassificationTreeSimple = ({ components, updateTrigger = 0 }: U
             marginBottom: '8px',
             fontSize: '16px' 
           }}>
-            Classification
           </div>
           <div>Chargement des classifications...</div>
         </div>

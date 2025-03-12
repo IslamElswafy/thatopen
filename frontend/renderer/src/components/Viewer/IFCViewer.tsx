@@ -141,11 +141,11 @@ const IFCViewer: FC = () => {
         setIfcModel(null);
       }
       
-      // Mise à jour du classifier - sans setTimeout
-      const classifier = components.get(OBC.Classifier);
-      if (classifier) {
-        classifier.update();
-      }
+      // // Mise à jour du classifier - sans setTimeout
+      // const classifier = components.get(OBC.Classifier);
+      // if (classifier) {
+      //   classifier.update();
+      // }
       
       // La mise à jour de l'UI est gérée par les événements dans ModelList et ClassificationTree
       return true;

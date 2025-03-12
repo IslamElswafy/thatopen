@@ -1,5 +1,5 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useClassificationTreeSimple } from './useClassificationTree';
+import { useClassificationTreeSimple } from '../hooks/useClassificationTree';
 import * as OBC from '@thatopen/components';
 import * as CUI from '@thatopen/ui-obc';
 import * as ReactDOM from 'react-dom/client';
@@ -425,5 +425,83 @@ describe('useClassificationTreeSimple Hook', () => {
       root.unmount();
     });
   });
-
+  // This test should be fixed to properly handle the fragmentsManager.groups mock
+  it('devrait mettre à jour la classification tree après suppression d\'un modèle', async () => {
+    // Configuration initiale avec deux modèles
+    mockFragmentsManager.groups = {
+      model1: { uuid: 'model1', userData: { type: 'FragmentsGroup' } },
+      model2: { uuid: 'model2', userData: { type: 'FragmentsGroup' } }
+    };
+    
+    // Configurer le classifier avec des données pour les deux modèles
+    mockClassifier.list = {
+      entities: { 
+        'IfcWall': { map: { 'model1': [1, 2, 3], 'model2': [4, 5, 6] }, name: 'Walls', id: 1 },
+        'IfcDoor': { map: { 'model2': [7, 8, 9] }, name: 'Doors', id: 2 }
+      },
+      predefinedTypes: {
+        'DOOR': { map: { 'model2': [7, 8, 9] }, name: 'Door', id: 1 },
+        'WALL': { map: { 'model1': [1, 2, 3], 'model2': [4, 5, 6] }, name: 'Wall', id: 2 }
+      }
+    };
+    
+    // Initialiser notre hook
+    const { result } = renderHook(() => 
+      useClassificationTreeSimple({ components: mockComponents })
+    );
+    
+    // Attendre que le hook soit initialisé
+    await waitFor(() => {
+      expect(mockComponents.get).toHaveBeenCalledWith(OBC.Classifier);
+      expect(mockFragmentsManager.onFragmentsDisposed.add).toHaveBeenCalled();
+    });
+    
+    // Récupérer le handler de suppression
+    const disposedHandler = mockFragmentsManager.onFragmentsDisposed.add.mock.calls[0][0];
+    expect(disposedHandler).toBeDefined();
+    
+    // Monter le composant
+    const root = ReactDOM.createRoot(container);
+    
+    act(() => {
+      root.render(<result.current.ClassificationTreeComponent />);
+    });
+    
+    act(() => {
+      jest.runAllTimers();
+    });
+    
+    // Vérifier que l'arbre est affiché initialement
+    expect(CUI.tables.classificationTree).toHaveBeenCalledTimes(1);
+    
+    // Réinitialiser le mock pour compter les appels suivants
+    (CUI.tables.classificationTree as jest.Mock).mockClear();
+    
+    // Retirer model1 des groups
+    delete mockFragmentsManager.groups.model1;
+    
+    // Simuler l'événement onFragmentsDisposed avec l'ID du modèle supprimé
+    act(() => {
+      disposedHandler({ groupID: 'model1' });
+    });
+    
+    // Avancer suffisamment les timers pour déclencher toutes les mises à jour
+    act(() => {
+      jest.runAllTimers();
+    });
+    
+    // Forcer un re-render pour voir les changements
+    act(() => {
+      root.render(<result.current.ClassificationTreeComponent />);
+      jest.runAllTimers();
+    });
+    
+    // Maintenant l'arbre de classification devrait avoir été recréé
+    expect(CUI.tables.classificationTree).toHaveBeenCalledTimes(1);
+    
+    // Nettoyer
+    act(() => {
+      root.unmount();
+    });
+  });
 });
