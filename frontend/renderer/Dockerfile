@@ -1,43 +1,28 @@
-# ────────────────
-# 1️⃣ Build stage
-# ────────────────
+# ───────── Build Stage ─────────
 FROM node:18-alpine AS builder
-
-# Set working dir
 WORKDIR /app
 
-# Copy package manifests & lockfile
+# 1. install deps
 COPY package.json package-lock.json ./
+RUN npm ci
 
-# Only install production deps (faster & smaller build)
-# if you need devDependencies during build (eg. for TypeScript), use `npm ci` instead.
-RUN npm ci  
+# 2. copy source (index.html, src/, public/, config files…)
+COPY . .
 
-# Copy the rest of the sources
-COPY tsconfig*.json vite.config.ts ./
-COPY public ./public
-COPY src ./src
-
-# Build the app
+# 3. build for production
 RUN npm run build
 
 
-# ──────────────────────
-# 2️⃣ Production stage
-# ──────────────────────
+# ─────── Production Stage ───────
 FROM nginx:stable-alpine
-
-# Remove default nginx site
+# remove default site
 RUN rm /etc/nginx/conf.d/default.conf
 
-# Copy our own nginx config (see below)  
+# simple SPA fallback
 COPY nginx.conf /etc/nginx/conf.d/
 
-# Copy built assets from the builder stage
+# copy built assets
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Expose port 80
 EXPOSE 80
-
-# Run nginx
 CMD ["nginx", "-g", "daemon off;"]
